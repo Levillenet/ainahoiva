@@ -34,7 +34,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
-      // Authenticated if password gate passed (Supabase session is bonus for RLS)
+      // If password gate was passed but no Supabase session, sign in anonymously
+      if (stored === 'true' && !session) {
+        const { data } = await supabase.auth.signInAnonymously();
+        setSession(data.session);
+        setUser(data.user);
+      }
       setIsAuthenticated(stored === 'true');
       setLoading(false);
     };
