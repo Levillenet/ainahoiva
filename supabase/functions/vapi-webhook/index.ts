@@ -668,7 +668,162 @@ Palauta tyhjä taulukko [] jos ei ole mitään muistettavaa.
         });
         if (error) console.error("[extractMemories] Insert error:", error);
       }
+}
+
+async function analyzeMedications(
+  transcript: string,
+  elderId: string,
+  callReportId: string
+) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.log("[analyzeMedications] No LOVABLE_API_KEY, skipping");
+    return;
+  }
+
+  const prompt = `Analysoi tämä puhelinkeskustelu ja tunnista lääkkeiden ottamiseen liittyvät maininnat.
+Palauta VAIN JSON, ei muuta tekstiä.
+
+Transkripti:
+${transcript}
+
+Palauta:
+{
+  "morning_taken": true/false/null,
+  "noon_taken": true/false/null,
+  "evening_taken": true/false/null,
+  "specific_medications": [
+    {"name": "lääkkeen nimi", "time": "morning/noon/evening", "taken": true/false}
+  ],
+  "dosette_checked": true/false,
+  "notes": "lisätietoja suomeksi tai null"
+}
+
+Tunnista ottamisesta kertovat sanat:
+- Otettu: "otin", "joo otin", "kyllä", "löytyi", "otettua", "otettu"
+- Ei otettu: "en ottanut", "unohdin", "ei löydy", "ei otettu"
+- Dosetti: "dosetti", "lääkepurkki", "pilleri", "tarkistin"
+
+Jos ei mainintaa → palauta null`;
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "Analysoi lääkkeiden otto puhelulitteroinnista tarkasti." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[analyzeMedications] AI error:", response.status);
+      return;
     }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return;
+
+    const result = JSON.parse(jsonMatch[0]);
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data: medications } = await supabase
+      .from("medications")
+      .select("id, name, dosage, morning, noon, evening")
+      .eq("elder_id", elderId);
+
+    if (!medications?.length) return;
+
+    const saveLogs = async (time: string, taken: boolean | null) => {
+      if (taken === null || taken === undefined) return;
+      const timeMeds = medications.filter((m: any) => m[time]);
+      for (const med of timeMeds) {
+        await supabase
+          .from("medication_logs")
+          .upsert({
+            elder_id: elderId,
+            medication_id: med.id,
+            medication_name: `${med.name} ${med.dosage || ""}`.trim(),
+            scheduled_time: time,
+            taken: taken === true,
+            not_taken: taken === false,
+            log_date: today,
+            taken_at: taken ? new Date().toISOString() : null,
+            call_report_id: callReportId,
+            confirmed_by: "aina",
+          }, {
+            onConflict: "elder_id,medication_id,scheduled_time,log_date",
+          });
+      }
+    };
+
+    await saveLogs("morning", result.morning_taken);
+    await saveLogs("noon", result.noon_taken);
+    await saveLogs("evening", result.evening_taken);
+
+    // Specific medication mentions
+    if (result.specific_medications?.length) {
+      for (const specific of result.specific_medications) {
+        const matchedMed = medications.find((m: any) =>
+          `${m.name} ${m.dosage || ""}`.toLowerCase().includes(specific.name.toLowerCase())
+        );
+        if (matchedMed) {
+          await supabase
+            .from("medication_logs")
+            .upsert({
+              elder_id: elderId,
+              medication_id: matchedMed.id,
+              medication_name: `${matchedMed.name} ${matchedMed.dosage || ""}`.trim(),
+              scheduled_time: specific.time,
+              taken: specific.taken,
+              not_taken: !specific.taken,
+              log_date: today,
+              taken_at: specific.taken ? new Date().toISOString() : null,
+              call_report_id: callReportId,
+              confirmed_by: "aina",
+              notes: result.notes || null,
+            }, {
+              onConflict: "elder_id,medication_id,scheduled_time,log_date",
+            });
+        }
+      }
+    }
+
+    // Alert if morning meds not taken by noon
+    const now = new Date();
+    const hour = now.getUTCHours() + 3; // Finnish time approx
+    if (hour >= 12 && result.morning_taken === false) {
+      const { data: notTaken } = await supabase
+        .from("medication_logs")
+        .select("medication_name")
+        .eq("elder_id", elderId)
+        .eq("log_date", today)
+        .eq("scheduled_time", "morning")
+        .eq("taken", false);
+
+      if (notTaken?.length) {
+        await sendAlertSms(
+          elderId,
+          "",
+          `Aamulääkkeitä ei ole otettu: ${notTaken.map((m: any) => m.medication_name).join(", ")}`
+        );
+      }
+    }
+
+    console.log(`[analyzeMedications] Saved medication logs for elder ${elderId}`);
+  } catch (error) {
+    console.error("[analyzeMedications] Error:", error);
+  }
+}
     console.log(`[extractMemories] Saved ${memories.length} memories for elder ${elderId}`);
   } catch (err) {
     console.error("[extractMemories] Error:", err);
