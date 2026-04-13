@@ -298,114 +298,12 @@ const ElderDetail = () => {
       )}
 
       {/* Memories */}
-      <div className="bg-card rounded-lg p-6 border border-border">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-cream flex items-center gap-2">
-            <Brain className="w-5 h-5 text-sage" /> Muistit
-            {memories.length > 0 && (
-              <span className="text-xs bg-gold/20 text-gold px-2 py-0.5 rounded-full">{memories.length}</span>
-            )}
-          </h2>
-          <Dialog open={memoryDialogOpen} onOpenChange={setMemoryDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="border-sage text-sage hover:bg-sage/10">
-                <Plus className="w-4 h-4 mr-1" /> Lisää muisto
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card border-border">
-              <DialogHeader>
-                <DialogTitle className="text-cream">Lisää muisto</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-cream">Tyyppi</Label>
-                  <Select value={memoryForm.memory_type} onValueChange={v => setMemoryForm(f => ({ ...f, memory_type: v }))}>
-                    <SelectTrigger className="bg-muted border-border text-cream">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="person">👥 Henkilö</SelectItem>
-                      <SelectItem value="health">🏥 Terveys</SelectItem>
-                      <SelectItem value="event">📅 Tapahtuma</SelectItem>
-                      <SelectItem value="preference">⭐ Mieltymys</SelectItem>
-                      <SelectItem value="family">👨‍👩‍👧 Perhe</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-cream">Muisto</Label>
-                  <Textarea
-                    value={memoryForm.content}
-                    onChange={e => setMemoryForm(f => ({ ...f, content: e.target.value }))}
-                    placeholder="Esim. Tyttären nimi on Ritva, asuu Tampereella"
-                    className="bg-muted border-border text-cream"
-                  />
-                </div>
-                <div className="flex gap-3 justify-end">
-                  <Button variant="ghost" onClick={() => setMemoryDialogOpen(false)} className="text-cream">Peruuta</Button>
-                  <Button onClick={handleAddMemory} className="bg-gold text-primary-foreground hover:bg-gold/90">Tallenna</Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {memories.length === 0 ? (
-          <p className="text-muted-foreground text-center py-6">Ei muistoja vielä. Muistot kertyvät automaattisesti puheluista tai voit lisätä niitä manuaalisesti.</p>
-        ) : (
-          <Tabs defaultValue="all">
-            <TabsList className="bg-muted border-border mb-4">
-              <TabsTrigger value="all" className="text-cream data-[state=active]:bg-card">Kaikki</TabsTrigger>
-              {Object.entries(memoryTypeConfig).map(([type, cfg]) => {
-                const count = memories.filter(m => m.memory_type === type).length;
-                if (count === 0) return null;
-                return (
-                  <TabsTrigger key={type} value={type} className="text-cream data-[state=active]:bg-card">
-                    {cfg.icon} {cfg.label}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-            {memoryTypes.map(tab => (
-              <TabsContent key={tab} value={tab} className="space-y-2">
-                {memories
-                  .filter(m => tab === 'all' || m.memory_type === tab)
-                  .map(m => (
-                    <div key={m.id} className="bg-muted rounded-lg p-4 flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span>{memoryTypeConfig[m.memory_type]?.icon || '📝'}</span>
-                          <span className="text-xs text-muted-foreground">{memoryTypeConfig[m.memory_type]?.label || m.memory_type}</span>
-                        </div>
-                        <p className="text-cream text-sm">{m.content}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(m.updated_at).toLocaleDateString('fi-FI')}
-                        </p>
-                      </div>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-terracotta shrink-0">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="bg-card border-border">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle className="text-cream">Poista muisto?</AlertDialogTitle>
-                            <AlertDialogDescription>Haluatko varmasti poistaa tämän muiston?</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="text-cream">Peruuta</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteMemory(m.id)} className="bg-terracotta text-cream hover:bg-terracotta/90">Poista</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  ))}
-              </TabsContent>
-            ))}
-          </Tabs>
-        )}
-      </div>
+      <MemoriesSection
+        elderId={id!}
+        memories={memories}
+        reports={reports}
+        onMemoriesChanged={fetchMemories}
+      />
 
       {/* Medications */}
       <div className="bg-card rounded-lg p-6 border border-border">
