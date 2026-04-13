@@ -29,13 +29,6 @@ import {
 
 const moodEmoji = (s: number) => ['😢', '😟', '😐', '🙂', '😊'][s - 1] || '—';
 
-const memoryTypeConfig: Record<string, { icon: string; label: string }> = {
-  person: { icon: '👥', label: 'Henkilöt' },
-  health: { icon: '🏥', label: 'Terveys' },
-  event: { icon: '📅', label: 'Tapahtumat' },
-  preference: { icon: '⭐', label: 'Mieltymykset' },
-  family: { icon: '👨‍👩‍👧', label: 'Perhe' },
-};
 
 const ElderDetail = () => {
   const { id } = useParams<{ id: string }>();
