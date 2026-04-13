@@ -417,7 +417,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_elder_by_phone: {
+        Args: { p_phone: string }
+        Returns: {
+          full_name: string
+          id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
