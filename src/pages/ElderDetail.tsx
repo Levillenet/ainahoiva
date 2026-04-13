@@ -584,8 +584,19 @@ const ElderDetail = () => {
               <Collapsible key={r.id}>
                 <div className="bg-muted rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-4 text-sm flex-wrap">
                       <span className="text-cream">{r.called_at ? new Date(r.called_at).toLocaleString('fi-FI') : '—'}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        r.call_type === 'inbound' ? 'bg-blue-500/20 text-blue-300' :
+                        r.call_type === 'retry' ? 'bg-orange-500/20 text-orange-300' :
+                        r.call_type?.includes('skipped') ? 'bg-muted-foreground/20 text-muted-foreground' :
+                        'bg-green-500/20 text-green-300'
+                      }`}>{
+                        r.call_type === 'inbound' ? '📲 Sisääntuleva' :
+                        r.call_type === 'retry' ? '🔄 Uudelleensoitto' :
+                        r.call_type?.includes('skipped') ? '⏭️ Ohitettu' :
+                        '📞 Ajoitettu'
+                      }</span>
                       <span className="text-muted-foreground">{r.duration_seconds ? `${Math.floor(r.duration_seconds / 60)} min ${r.duration_seconds % 60} sek` : ''}</span>
                       <span>{r.mood_score ? `${moodEmoji(r.mood_score)} ${r.mood_score}/5` : ''}</span>
                       {r.mood_source === 'hume+gpt' ? (
