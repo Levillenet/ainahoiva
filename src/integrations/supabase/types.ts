@@ -342,12 +342,80 @@ export type Database = {
           },
         ]
       }
+      medication_logs: {
+        Row: {
+          call_report_id: string | null
+          confirmed_by: string | null
+          elder_id: string
+          id: string
+          log_date: string | null
+          medication_id: string
+          medication_name: string
+          not_taken: boolean | null
+          notes: string | null
+          scheduled_time: string
+          taken: boolean | null
+          taken_at: string | null
+        }
+        Insert: {
+          call_report_id?: string | null
+          confirmed_by?: string | null
+          elder_id: string
+          id?: string
+          log_date?: string | null
+          medication_id: string
+          medication_name: string
+          not_taken?: boolean | null
+          notes?: string | null
+          scheduled_time: string
+          taken?: boolean | null
+          taken_at?: string | null
+        }
+        Update: {
+          call_report_id?: string | null
+          confirmed_by?: string | null
+          elder_id?: string
+          id?: string
+          log_date?: string | null
+          medication_id?: string
+          medication_name?: string
+          not_taken?: boolean | null
+          notes?: string | null
+          scheduled_time?: string
+          taken?: boolean | null
+          taken_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_logs_call_report_id_fkey"
+            columns: ["call_report_id"]
+            isOneToOne: false
+            referencedRelation: "call_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_logs_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_logs_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medications: {
         Row: {
           created_at: string | null
           dosage: string | null
           elder_id: string
           evening: boolean | null
+          has_dosette: boolean | null
           id: string
           instructions: string | null
           morning: boolean | null
@@ -360,6 +428,7 @@ export type Database = {
           dosage?: string | null
           elder_id: string
           evening?: boolean | null
+          has_dosette?: boolean | null
           id?: string
           instructions?: string | null
           morning?: boolean | null
@@ -372,6 +441,7 @@ export type Database = {
           dosage?: string | null
           elder_id?: string
           evening?: boolean | null
+          has_dosette?: boolean | null
           id?: string
           instructions?: string | null
           morning?: boolean | null
