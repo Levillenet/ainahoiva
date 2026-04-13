@@ -76,15 +76,30 @@ serve(async (req) => {
 
     if (error) throw error;
 
-    // Detect missed call (duration < 10 seconds)
-    if (duration < 10 && insertedReport) {
+    // Detect missed call (duration < 15 seconds)
+    if (duration < 15 && insertedReport) {
       await supabase.from("call_reports").update({
         ai_summary: "Ei vastattu puheluun",
         alert_sent: true,
         alert_reason: "Vanhus ei vastannut soittoon",
       }).eq("id", insertedReport.id);
 
-      await sendAlertSms(elder.id, elder.full_name, "Ei vastannut soittoon. Tarkistakaa vointi.");
+      // Trigger missed call handler for retry logic
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/handle-missed-call`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({ elder_id: elder.id }),
+      });
+    } else if (duration >= 15) {
+      // Call was answered — resolve any pending retries
+      await supabase
+        .from("missed_call_retries")
+        .update({ is_resolved: true })
+        .eq("elder_id", elder.id)
+        .eq("is_resolved", false);
     }
 
     // Send alert SMS log if needed
