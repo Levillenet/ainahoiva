@@ -159,7 +159,9 @@ serve(async (req) => {
     await sendSummary(elder.id, elder.full_name, analysis);
 
     // Extract and save memories from transcript
+    console.log("Starting memory extraction for elder:", elder.id, "transcript length:", transcript.length);
     await extractMemories(elder.id, transcript, elder.full_name);
+    console.log("Memory extraction completed for elder:", elder.id);
 
     // Trigger Hume emotion analysis if audio URL available
     const audioUrl = message?.call?.recordingUrl ?? null;
