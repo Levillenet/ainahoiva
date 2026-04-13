@@ -122,6 +122,7 @@ serve(async (req) => {
       elder_id: elder.id,
       call_type: "outbound_scheduled",
       ai_summary: "Soitto käynnistetty — odottaa vastausta",
+      vapi_call_id: result.id,
     });
 
     return new Response(JSON.stringify({ success: true, call: result }), {
