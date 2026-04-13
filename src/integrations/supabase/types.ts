@@ -37,6 +37,7 @@ export type Database = {
           mood_score: number | null
           mood_source: string | null
           transcript: string | null
+          vapi_call_id: string | null
         }
         Insert: {
           ai_summary?: string | null
@@ -60,6 +61,7 @@ export type Database = {
           mood_score?: number | null
           mood_source?: string | null
           transcript?: string | null
+          vapi_call_id?: string | null
         }
         Update: {
           ai_summary?: string | null
@@ -83,6 +85,7 @@ export type Database = {
           mood_score?: number | null
           mood_source?: string | null
           transcript?: string | null
+          vapi_call_id?: string | null
         }
         Relationships: [
           {
