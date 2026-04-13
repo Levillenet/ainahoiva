@@ -139,6 +139,19 @@ serve(async (req) => {
       await sendAlertSms(elder.id, elder.full_name, analysis.alert_reason);
     }
 
+    // Send family contact request if elder asked for it
+    if (analysis.contact_family) {
+      const reason = analysis.contact_reason || "Vanhus pyysi yhteydenottoa omaisiin";
+      await sendFamilyContactSms(elder.id, elder.full_name, reason);
+      // Also mark alert on report
+      if (insertedReport) {
+        await supabase.from("call_reports").update({
+          alert_sent: true,
+          alert_reason: `Omaisen kutsumispyyntö: ${reason}`,
+        }).eq("id", insertedReport.id);
+      }
+    }
+
     // Send daily summary SMS log
     await sendSummary(elder.id, elder.full_name, analysis);
 
@@ -198,7 +211,9 @@ Palauta:
   "ate_today": <true/false/null jos ei mainittu>,
   "summary": "<2-3 lauseen yhteenveto suomeksi>",
   "needs_alert": <true jos mieliala 1-2 tai mainitsee kipua/hätää/kaatumista>,
-  "alert_reason": "<syy hälytykselle suomeksi tai null>"
+  "alert_reason": "<syy hälytykselle suomeksi tai null>",
+  "contact_family": <true jos vanhus pyytää yhteydenottoa omaisiin, esim. "soita tyttärelleni", "kerro pojalleni", "tarvitsen apua", "kutsu joku käymään">,
+  "contact_reason": "<syy yhteydenottopyyntöön suomeksi tai null>"
 }`;
 
   try {
