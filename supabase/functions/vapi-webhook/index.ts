@@ -61,7 +61,7 @@ serve(async (req) => {
     const analysis = await analyzeTranscript(transcript);
 
     // Save call report
-    const { error } = await supabase.from("call_reports").insert({
+    const { data: insertedReport, error } = await supabase.from("call_reports").insert({
       elder_id: elder.id,
       duration_seconds: duration,
       mood_score: analysis.mood_score,
@@ -72,9 +72,20 @@ serve(async (req) => {
       alert_sent: analysis.needs_alert,
       alert_reason: analysis.alert_reason,
       call_type: "inbound",
-    });
+    }).select("id").single();
 
     if (error) throw error;
+
+    // Detect missed call (duration < 10 seconds)
+    if (duration < 10 && insertedReport) {
+      await supabase.from("call_reports").update({
+        ai_summary: "Ei vastattu puheluun",
+        alert_sent: true,
+        alert_reason: "Vanhus ei vastannut soittoon",
+      }).eq("id", insertedReport.id);
+
+      await sendAlertSms(elder.id, elder.full_name, "Ei vastannut soittoon. Tarkistakaa vointi.");
+    }
 
     // Send alert SMS log if needed
     if (analysis.needs_alert) {

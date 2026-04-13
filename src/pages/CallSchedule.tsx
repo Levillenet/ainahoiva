@@ -1,0 +1,236 @@
+import { useEffect, useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Phone, Loader2, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+const CallSchedule = () => {
+  const { toast } = useToast();
+  const [elders, setElders] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
+  const [reminders, setReminders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [callingId, setCallingId] = useState<string | null>(null);
+
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const dayNames = ['Sunnuntai', 'Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai'];
+
+  const fetchData = useCallback(async () => {
+    const [eldersRes, reportsRes, remindersRes] = await Promise.all([
+      supabase.from('elders').select('*').eq('is_active', true).order('full_name'),
+      supabase.from('call_reports').select('*').gte('called_at', todayStr),
+      supabase.from('reminders').select('*, elders(full_name)').gte('remind_at', todayStr).lte('remind_at', todayStr + 'T23:59:59'),
+    ]);
+    setElders(eldersRes.data || []);
+    setReports(reportsRes.data || []);
+    setReminders(remindersRes.data || []);
+    setLoading(false);
+  }, [todayStr]);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  const handleCallNow = async (elderId: string) => {
+    setCallingId(elderId);
+    try {
+      const { error } = await supabase.functions.invoke('outbound-call', { body: { elder_id: elderId } });
+      if (error) throw error;
+      toast({ title: 'Soitto käynnistetty!' });
+      setTimeout(fetchData, 3000);
+    } catch (err: any) {
+      toast({ title: 'Virhe', description: err.message, variant: 'destructive' });
+    } finally {
+      setCallingId(null);
+    }
+  };
+
+  const getCallStatus = (elderId: string, timeType: 'morning' | 'evening') => {
+    const elderReports = reports.filter(r => r.elder_id === elderId);
+    const relevantReport = elderReports.find(r =>
+      r.call_type?.includes(timeType) || r.call_type === 'inbound'
+    );
+
+    if (!relevantReport) {
+      // Check if there's any report today for this elder
+      const anyReport = elderReports[0];
+      if (anyReport && timeType === 'morning') return { status: 'called', report: anyReport };
+      return { status: 'pending', report: null };
+    }
+
+    if (relevantReport.duration_seconds !== null && relevantReport.duration_seconds < 10) {
+      return { status: 'missed', report: relevantReport };
+    }
+    return { status: 'called', report: relevantReport };
+  };
+
+  const StatusIcon = ({ status }: { status: string }) => {
+    switch (status) {
+      case 'called': return <CheckCircle className="w-5 h-5 text-sage" />;
+      case 'missed': return <XCircle className="w-5 h-5 text-terracotta" />;
+      default: return <Clock className="w-5 h-5 text-gold" />;
+    }
+  };
+
+  const statusText = (status: string, report: any) => {
+    switch (status) {
+      case 'called':
+        const time = report?.called_at ? new Date(report.called_at).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' }) : '';
+        const dur = report?.duration_seconds ? `${Math.floor(report.duration_seconds / 60)} min` : '';
+        return `soitettu ${time} ${dur}`.trim();
+      case 'missed': return 'ei vastattu';
+      default: return 'odottaa...';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-cream">Aikataulu</h1>
+        {[1, 2, 3].map(i => <div key={i} className="bg-card rounded-lg p-6 animate-pulse h-32" />)}
+      </div>
+    );
+  }
+
+  // Group elders by call times
+  const morningElders = elders.filter(e => e.call_time_morning);
+  const eveningElders = elders.filter(e => e.call_time_evening);
+
+  // Get unique morning/evening times
+  const morningTime = morningElders[0]?.call_time_morning?.slice(0, 5) || '08:00';
+  const eveningTime = eveningElders[0]?.call_time_evening?.slice(0, 5) || '19:00';
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-cream mb-1">Aikataulu</h1>
+        <p className="text-muted-foreground">
+          Tänään — {dayNames[today.getDay()]} {today.toLocaleDateString('fi-FI')}
+        </p>
+      </div>
+
+      {/* Morning calls */}
+      <div className="bg-card rounded-lg p-6 border border-border">
+        <h2 className="text-lg font-bold text-cream mb-4">☀️ Aamusoitot klo {morningTime}</h2>
+        {morningElders.length === 0 ? (
+          <p className="text-muted-foreground">Ei aamusoittoja.</p>
+        ) : (
+          <div className="space-y-2">
+            {morningElders.map(elder => {
+              const { status, report } = getCallStatus(elder.id, 'morning');
+              return (
+                <div key={elder.id} className={`flex items-center justify-between p-3 rounded-lg ${status === 'missed' ? 'bg-terracotta/10 border border-terracotta/30' : 'bg-muted'}`}>
+                  <div className="flex items-center gap-3">
+                    <StatusIcon status={status} />
+                    <span className="text-cream font-medium">{elder.full_name}</span>
+                    <span className="text-muted-foreground text-sm">{statusText(status, report)}</span>
+                  </div>
+                  {status === 'pending' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleCallNow(elder.id)}
+                      disabled={callingId === elder.id}
+                      className="bg-sage text-primary-foreground hover:bg-sage/90"
+                    >
+                      {callingId === elder.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4 mr-1" />}
+                      Soita nyt
+                    </Button>
+                  )}
+                  {status === 'missed' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCallNow(elder.id)}
+                      disabled={callingId === elder.id}
+                      className="border-terracotta text-terracotta hover:bg-terracotta/10"
+                    >
+                      {callingId === elder.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4 mr-1" />}
+                      Soita uudelleen
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Evening calls */}
+      <div className="bg-card rounded-lg p-6 border border-border">
+        <h2 className="text-lg font-bold text-cream mb-4">🌙 Iltasoitot klo {eveningTime}</h2>
+        {eveningElders.length === 0 ? (
+          <p className="text-muted-foreground">Ei iltasoittoja.</p>
+        ) : (
+          <div className="space-y-2">
+            {eveningElders.map(elder => {
+              const { status, report } = getCallStatus(elder.id, 'evening');
+              return (
+                <div key={elder.id} className={`flex items-center justify-between p-3 rounded-lg ${status === 'missed' ? 'bg-terracotta/10 border border-terracotta/30' : 'bg-muted'}`}>
+                  <div className="flex items-center gap-3">
+                    <StatusIcon status={status} />
+                    <span className="text-cream font-medium">{elder.full_name}</span>
+                    <span className="text-muted-foreground text-sm">{statusText(status, report)}</span>
+                  </div>
+                  {status === 'pending' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleCallNow(elder.id)}
+                      disabled={callingId === elder.id}
+                      className="bg-sage text-primary-foreground hover:bg-sage/90"
+                    >
+                      {callingId === elder.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4 mr-1" />}
+                      Soita nyt
+                    </Button>
+                  )}
+                  {status === 'missed' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCallNow(elder.id)}
+                      disabled={callingId === elder.id}
+                      className="border-terracotta text-terracotta hover:bg-terracotta/10"
+                    >
+                      {callingId === elder.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4 mr-1" />}
+                      Soita uudelleen
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Today's reminders */}
+      <div className="bg-card rounded-lg p-6 border border-border">
+        <h2 className="text-lg font-bold text-cream mb-4">⏰ Muistutukset tänään</h2>
+        {reminders.length === 0 ? (
+          <p className="text-muted-foreground">Ei muistutuksia tänään.</p>
+        ) : (
+          <div className="space-y-2">
+            {reminders.map(r => (
+              <div key={r.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-3">
+                  {r.is_sent ? <CheckCircle className="w-4 h-4 text-sage" /> : <Clock className="w-4 h-4 text-gold" />}
+                  <span className="text-cream text-sm">
+                    {new Date(r.remind_at).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span className="text-cream font-medium">{(r as any).elders?.full_name}</span>
+                  <span className="text-muted-foreground text-sm">— {r.message}</span>
+                </div>
+                <span className="text-xs text-muted-foreground uppercase">
+                  {r.is_sent ? '✅ Lähetetty' : `⏳ ${r.method}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default CallSchedule;

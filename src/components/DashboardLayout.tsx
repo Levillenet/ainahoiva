@@ -2,12 +2,13 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import Logo from './Logo';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Users, FileText, Bell, Settings, LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
+import { Users, FileText, Bell, Settings, LayoutDashboard, LogOut, Menu, X, Calendar } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Yleiskatsaus' },
   { to: '/dashboard/vanhukset', icon: Users, label: 'Vanhukset' },
+  { to: '/dashboard/aikataulu', icon: Calendar, label: 'Aikataulu' },
   { to: '/dashboard/raportit', icon: FileText, label: 'Raportit' },
   { to: '/dashboard/muistutukset', icon: Bell, label: 'Muistutukset' },
   { to: '/dashboard/asetukset', icon: Settings, label: 'Asetukset' },
