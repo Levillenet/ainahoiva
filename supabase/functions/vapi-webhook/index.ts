@@ -200,7 +200,23 @@ serve(async (req) => {
       console.error("[vapi-webhook] Memory extraction failed:", memErr);
     }
 
-    // Trigger Hume emotion analysis if audio URL available
+    // Save reminders extracted from conversation
+    if (analysis.reminders?.length) {
+      console.log(`[vapi-webhook] Saving ${analysis.reminders.length} reminders for elder ${elder.id}`);
+      for (const rem of analysis.reminders) {
+        if (rem.message && rem.date && rem.time) {
+          const { error: remError } = await supabase.from("reminders").insert({
+            elder_id: elder.id,
+            message: rem.message,
+            remind_at: `${rem.date}T${rem.time}:00+03:00`,
+            method: rem.method || "call",
+            is_sent: false,
+          });
+          if (remError) console.error("[vapi-webhook] Reminder insert error:", remError);
+        }
+      }
+    }
+
     const audioUrl = resolveAudioUrl(body);
     console.log("[vapi-webhook] Resolved audio URL:", audioUrl ?? "none");
     if (audioUrl && insertedReport) {
