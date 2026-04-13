@@ -2,7 +2,7 @@ import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { Phone, Brain, Pill, MessageSquare, FileText, AlertTriangle, Shield, Heart, Smile, Activity, Utensils, Dumbbell, MessageCircle, PhoneCall, Cloud, Bell, Users, Gift } from 'lucide-react';
+import { Phone, Brain, Pill, MessageSquare, FileText, AlertTriangle, Shield, Smile, Activity, Utensils, Dumbbell, MessageCircle, Cloud, Bell, Users, Gift } from 'lucide-react';
 
 const Landing = () => {
   const { user, signInWithGoogle } = useAuth();
