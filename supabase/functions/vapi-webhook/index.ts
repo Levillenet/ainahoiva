@@ -32,6 +32,7 @@ serve(async (req) => {
       });
     }
 
+    const vapiCallId = message?.call?.id;
     const callerNumber = message?.call?.customer?.number;
     const transcript = message?.transcript || "";
     const duration = message?.call?.endedAt
@@ -60,8 +61,7 @@ serve(async (req) => {
     // Analyze transcript with Lovable AI
     const analysis = await analyzeTranscript(transcript);
 
-    // Save call report
-    const { data: insertedReport, error } = await supabase.from("call_reports").insert({
+    const reportData = {
       elder_id: elder.id,
       duration_seconds: duration,
       mood_score: analysis.mood_score,
@@ -71,10 +71,42 @@ serve(async (req) => {
       ai_summary: analysis.summary,
       alert_sent: analysis.needs_alert,
       alert_reason: analysis.alert_reason,
-      call_type: "inbound",
-    }).select("id").single();
+    };
 
-    if (error) throw error;
+    let insertedReport: { id: string } | null = null;
+
+    // Try to update existing report by vapi_call_id (outbound calls)
+    if (vapiCallId) {
+      const { data: updated, error: updateError } = await supabase
+        .from("call_reports")
+        .update(reportData)
+        .eq("vapi_call_id", vapiCallId)
+        .select("id")
+        .maybeSingle();
+
+      if (updateError) console.error("Update error:", updateError);
+      if (updated) {
+        insertedReport = updated;
+        console.log("Updated existing report:", updated.id);
+      }
+    }
+
+    // If no existing report found, insert new one (inbound calls)
+    if (!insertedReport) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("call_reports")
+        .insert({
+          ...reportData,
+          call_type: "inbound",
+          vapi_call_id: vapiCallId || null,
+        })
+        .select("id")
+        .single();
+
+      if (insertError) throw insertError;
+      insertedReport = inserted;
+      console.log("Inserted new report:", inserted?.id);
+    }
 
     // Detect missed call (duration < 15 seconds)
     if (duration < 15 && insertedReport) {
