@@ -599,10 +599,10 @@ const ElderDetail = () => {
                   {r.ai_summary && <p className="text-cream text-sm mb-2">{r.ai_summary}</p>}
 
                   {/* Emotion chart if Hume data exists */}
-                  {r.hume_raw && (
+                  {r.hume_raw ? (
                     <div className="mt-3 mb-3">
                       <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
-                        <Volume2 className="w-4 h-4" /> Tunneanalyysi
+                        <Volume2 className="w-4 h-4" /> Tunneanalyysi (Hume AI)
                       </p>
                       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
                         {[
@@ -629,7 +629,9 @@ const ElderDetail = () => {
                         confusion={r.hume_confusion ?? 0}
                       />
                     </div>
-                  )}
+                  ) : r.duration_seconds && r.duration_seconds > 10 ? (
+                    <p className="text-xs text-muted-foreground mt-2 italic">🔄 Tunneanalyysiä ei saatavilla tälle puhelulle</p>
+                  ) : null}
 
                   {r.audio_url && (
                     <a href={r.audio_url} target="_blank" rel="noopener noreferrer" className="text-sage text-xs hover:underline inline-flex items-center gap-1 mr-3">

@@ -261,6 +261,8 @@ function fallbackAnalysis() {
     summary: "Yhteenvetoa ei voitu muodostaa automaattisesti.",
     needs_alert: false,
     alert_reason: null,
+    contact_family: false,
+    contact_reason: null,
   };
 }
 
