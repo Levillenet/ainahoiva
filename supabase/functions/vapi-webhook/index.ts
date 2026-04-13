@@ -207,11 +207,19 @@ async function sendAlertSms(elderId: string, elderName: string, reason: string) 
   if (!family?.length) return;
 
   for (const member of family) {
-    await supabase.from("sms_log").insert({
-      elder_id: elderId,
-      to_number: member.phone_number,
-      message: `⚠️ AinaHoiva HÄLYTYS: ${elderName} tarvitsee huomiota. ${reason}`,
-      type: "alert",
+    const message = `⚠️ AinaHoiva HÄLYTYS: ${elderName} tarvitsee huomiota. ${reason}`;
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({
+        elder_id: elderId,
+        to_number: member.phone_number,
+        message,
+        type: "alert",
+      }),
     });
   }
 }
@@ -236,11 +244,18 @@ async function sendSummary(elderId: string, elderName: string, analysis: Record<
   const message = `AinaHoiva — ${elderName}\n${moodEmoji} Mieliala: ${moodScore}/5\n${medsText}\n\n${analysis.summary}`;
 
   for (const member of family) {
-    await supabase.from("sms_log").insert({
-      elder_id: elderId,
-      to_number: member.phone_number,
-      message,
-      type: "summary",
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({
+        elder_id: elderId,
+        to_number: member.phone_number,
+        message,
+        type: "summary",
+      }),
     });
   }
 }
