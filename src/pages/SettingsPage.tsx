@@ -3,12 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Settings } from 'lucide-react';
+import { Settings, Copy, CheckCircle } from 'lucide-react';
+
+const WEBHOOK_URL = `https://bjsthjvpotfcxgqxtoiy.supabase.co/functions/v1/vapi-webhook`;
 
 const SettingsPage = () => {
   const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
   const [form, setForm] = useState({
-    vapi_key: '',
     twilio_sid: '',
     twilio_token: '',
     twilio_phone: '',
@@ -16,22 +18,64 @@ const SettingsPage = () => {
   });
 
   const handleSave = () => {
-    // Phase 2: Save to Supabase or edge function secrets
-    toast({ title: 'Asetukset tallennettu', description: 'Vapi/Twilio-integraatio tulee Phase 2:ssa.' });
+    toast({ title: 'Asetukset tallennettu', description: 'Twilio-integraatio tulee myöhemmin.' });
+  };
+
+  const copyWebhookUrl = async () => {
+    await navigator.clipboard.writeText(WEBHOOK_URL);
+    setCopied(true);
+    toast({ title: 'Kopioitu!', description: 'Webhook URL kopioitu leikepöydälle.' });
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-cream mb-6 flex items-center gap-2">
+    <div className="max-w-2xl space-y-6">
+      <h1 className="text-2xl font-bold text-cream flex items-center gap-2">
         <Settings className="w-6 h-6 text-sage" /> Asetukset
       </h1>
 
+      {/* Webhook & Integration Settings */}
       <div className="bg-card rounded-lg p-6 border border-border space-y-6">
-        <div>
-          <Label className="text-cream">Vapi API Key</Label>
-          <Input value={form.vapi_key} onChange={e => setForm(f => ({ ...f, vapi_key: e.target.value }))} type="password" placeholder="vapi_..." className="bg-muted border-border text-cream" />
-          <p className="text-xs text-muted-custom mt-1">Vapi.ai API-avain puheluiden tekemiseen</p>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-cream">Integraatioasetukset</h2>
+          <span className="flex items-center gap-1 text-xs bg-sage/20 text-sage px-2 py-1 rounded-full">
+            <CheckCircle className="w-3 h-3" /> Webhook aktiivinen
+          </span>
         </div>
+
+        <div>
+          <Label className="text-cream">Vapi Webhook URL</Label>
+          <div className="flex gap-2 mt-1">
+            <Input
+              value={WEBHOOK_URL}
+              readOnly
+              className="bg-muted border-border text-cream font-mono text-xs"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={copyWebhookUrl}
+              className="border-border text-cream hover:bg-muted shrink-0"
+            >
+              {copied ? <CheckCircle className="w-4 h-4 text-sage" /> : <Copy className="w-4 h-4" />}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Kopioi tämä URL Vapi-dashboardiin: Assistants → [assistentti] → Advanced → Server URL
+          </p>
+        </div>
+
+        <div className="bg-muted rounded-lg p-4">
+          <p className="text-muted-foreground text-sm">
+            ℹ️ Vapi API Key, Assistant ID ja Phone Number ID on konfiguroitu backend-salaisuuksina.
+            Webhook vastaanottaa puhelujen litteroinnit ja luo raportit automaattisesti Lovable AI:n avulla.
+          </p>
+        </div>
+      </div>
+
+      {/* Twilio / Other settings */}
+      <div className="bg-card rounded-lg p-6 border border-border space-y-6">
+        <h2 className="text-lg font-bold text-cream">Muut asetukset</h2>
 
         <div>
           <Label className="text-cream">Twilio Account SID</Label>
@@ -58,8 +102,8 @@ const SettingsPage = () => {
         </Button>
 
         <div className="bg-muted rounded-lg p-4 mt-4">
-          <p className="text-muted-custom text-sm">
-            ℹ️ Vapi- ja Twilio-integraatiot ovat tulossa Phase 2:ssa. Voit jo nyt tallentaa avaimesi valmiiksi.
+          <p className="text-muted-foreground text-sm">
+            ℹ️ Twilio SMS-integraatio tulossa myöhemmin. Voit jo nyt tallentaa avaimesi valmiiksi.
           </p>
         </div>
       </div>
