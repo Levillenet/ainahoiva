@@ -1,38 +1,23 @@
 
 
-## Korjaussuunnitelma: "Ei vastattu" ylikirjoittaa oikeat raportit
+## Lisää puhelun tyyppi (inbound/outbound) puheluraportteihin
 
 ### Ongelma
-Vapi webhook käsittelee puhelun oikein: AI-analyysi antaa mood 5/5, litterointi tallennetaan, mutta **missatun puhelun tarkistus (rivi 112-118) ylikirjoittaa tuloksen** tekstillä "Ei vastattu puheluun". Tämä tapahtuu koska `duration` on aina 0 (Vapi raportoi 0s keston).
+Puheluraporteissa ei näy, oliko puhelu sisäänkisoitto (inbound) vai ulossoitto (outbound/scheduled). Tieto on jo tallennettuna `call_reports.call_type` -kentässä, mutta sitä ei näytetä käyttöliittymässä.
 
-Lisäksi `extractMemories`-funktiota ei koskaan kutsuta (ei lokeja), mikä viittaa siihen että funktio kaatuu tai aikakatkaisee ennen sitä.
+### Muutokset
 
-### Ratkaisu: `vapi-webhook/index.ts`
+**Tiedosto: `src/pages/ElderDetail.tsx`** (rivin 590 jälkeen)
+- Lisätään puhelutyypin badge jokaisen puheluraportin riville
+- Näytetään tyyppi suomeksi selkeällä merkinnällä:
+  - `inbound` → "📲 Sisääntuleva"
+  - `scheduled` / `morning` / `evening` → "📞 Ajoitettu"
+  - `retry` → "🔄 Uudelleensoitto"  
+  - `*_skipped` → "⏭️ Ohitettu"
+- Badge sijoitetaan päivämäärän ja keston viereen samalle riville
 
-**1. Korjaa missatun puhelun logiikka** — Siirrä tarkistus ENNEN AI-analyysiä ja käytä pelkkää transkriptia signaalina:
-
-```typescript
-// Detect missed call FIRST — before doing expensive AI analysis
-const hasRealConversation = transcript.length > 50;
-
-if (!hasRealConversation) {
-  // Short/empty transcript = missed call → update and return early
-  // ... update report, trigger handle-missed-call, return
-}
-
-// Only reach here if real conversation happened
-const analysis = await analyzeTranscript(transcript);
-// ... update report with analysis, never overwrite with "Ei vastattu"
-```
-
-**2. Lisää transcript fallback** — Tarkista myös `message.artifact?.transcript`:
-```typescript
-const transcript = message?.transcript || message?.artifact?.transcript || "";
-```
-
-**3. Lisää debug-lokit** — Lokita transcript-pituus ja missed call -päätös.
-
-### Muutettavat tiedostot
-- `supabase/functions/vapi-webhook/index.ts` — Uudelleenjärjestä logiikka niin ettei "Ei vastattu" voi ylikirjoittaa onnistunutta analyysiä
-- Deploy funktio uudelleen
+### Tekninen toteutus
+- Luodaan pieni apufunktio `callTypeLabel(call_type)` joka palauttaa suomenkielisen tekstin ja ikonin
+- Lisätään badge `<span>` elementtinä olemassa olevaan flex-riviin
+- Ei tarvita tietokantamuutoksia, data on jo olemassa
 
