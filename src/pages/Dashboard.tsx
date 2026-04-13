@@ -201,6 +201,28 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* Emotion summary */}
+      {!loading && emotions && (
+        <div className="mt-6">
+          <h2 className="text-lg font-bold text-cream mb-4">Tänään tunneprofiilit</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { emoji: '😊', label: 'Ilo', value: emotions.joy },
+              { emoji: '😢', label: 'Suru', value: emotions.sadness },
+              { emoji: '😰', label: 'Ahdistus', value: emotions.anxiety },
+              { emoji: '😴', label: 'Väsymys', value: emotions.tiredness },
+            ].map(e => (
+              <div key={e.label} className="bg-card rounded-lg p-4 border border-border text-center">
+                <div className="text-2xl mb-1">{e.emoji}</div>
+                <div className="text-2xl font-bold text-gold">{Math.round(e.value * 100)}%</div>
+                <div className="text-sm text-muted-foreground">{e.label}</div>
+                <div className="text-xs text-muted-foreground">Kaikki vanhukset</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!loading && stats[0]?.value === 0 && (
         <div className="mt-12 text-center bg-card rounded-lg p-8 border border-border">
           <Users className="w-12 h-12 text-sage mx-auto mb-4" />
