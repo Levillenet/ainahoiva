@@ -108,8 +108,11 @@ serve(async (req) => {
       console.log("Inserted new report:", inserted?.id);
     }
 
-    // Detect missed call (duration < 15 seconds)
-    if (duration < 15 && insertedReport) {
+    // Detect missed call — use transcript length as primary signal since duration can be 0
+    const hasRealConversation = transcript.length > 50;
+    const isMissedCall = !hasRealConversation && duration < 30;
+    
+    if (isMissedCall && insertedReport) {
       await supabase.from("call_reports").update({
         ai_summary: "Ei vastattu puheluun",
         alert_sent: true,
@@ -125,7 +128,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({ elder_id: elder.id }),
       });
-    } else if (duration >= 15) {
+    } else if (hasRealConversation) {
       // Call was answered — resolve any pending retries
       await supabase
         .from("missed_call_retries")
