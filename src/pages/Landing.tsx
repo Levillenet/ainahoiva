@@ -4,18 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { Lock } from 'lucide-react';
+import { Lock, Loader2 } from 'lucide-react';
 
 const Landing = () => {
   const { isAuthenticated, signIn } = useAuth();
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = signIn(password);
+    setLoading(true);
+    const success = await signIn(password);
+    setLoading(false);
     if (!success) {
       setError(true);
       setTimeout(() => setError(false), 2000);
@@ -44,7 +47,8 @@ const Landing = () => {
             />
           </div>
           {error && <p className="text-terracotta text-sm">Väärä salasana</p>}
-          <Button type="submit" className="w-full bg-gold text-primary-foreground hover:bg-gold/90">
+          <Button type="submit" disabled={loading} className="w-full bg-gold text-primary-foreground hover:bg-gold/90">
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Kirjaudu sisään
           </Button>
         </form>
