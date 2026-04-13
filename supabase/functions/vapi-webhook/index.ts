@@ -200,7 +200,23 @@ serve(async (req) => {
       console.error("[vapi-webhook] Memory extraction failed:", memErr);
     }
 
-    // Trigger Hume emotion analysis if audio URL available
+    // Save reminders extracted from conversation
+    if (analysis.reminders?.length) {
+      console.log(`[vapi-webhook] Saving ${analysis.reminders.length} reminders for elder ${elder.id}`);
+      for (const rem of analysis.reminders) {
+        if (rem.message && rem.date && rem.time) {
+          const { error: remError } = await supabase.from("reminders").insert({
+            elder_id: elder.id,
+            message: rem.message,
+            remind_at: `${rem.date}T${rem.time}:00+03:00`,
+            method: rem.method || "call",
+            is_sent: false,
+          });
+          if (remError) console.error("[vapi-webhook] Reminder insert error:", remError);
+        }
+      }
+    }
+
     const audioUrl = resolveAudioUrl(body);
     console.log("[vapi-webhook] Resolved audio URL:", audioUrl ?? "none");
     if (audioUrl && insertedReport) {
@@ -268,8 +284,14 @@ Palauta:
   "needs_alert": <true jos mieliala 1-2 tai mainitsee kipua/hätää/kaatumista>,
   "alert_reason": "<syy hälytykselle suomeksi tai null>",
   "contact_family": <true jos vanhus pyytää yhteydenottoa omaisiin, esim. "soita tyttärelleni", "kerro pojalleni", "tarvitsen apua", "kutsu joku käymään">,
-  "contact_reason": "<syy yhteydenottopyyntöön suomeksi tai null>"
-}`;
+  "contact_reason": "<syy yhteydenottopyyntöön suomeksi tai null>",
+  "reminders": [{"message": "<muistutuksen aihe>", "date": "YYYY-MM-DD", "time": "HH:MM", "method": "call|sms"}]
+}
+
+Reminders-kenttä: Jos vanhus pyytää muistutusta jostakin (esim. "muistuta parturista huomenna kello 10"), poimi se tähän.
+- method: jos vanhus sanoo "soita" tai "muistuta soittamalla" → "call", jos "laita viesti" tai "tekstiviesti" → "sms", muuten oletus "call"
+- date: päättele päivämäärä kontekstista (tänään on ` + new Date().toISOString().split("T")[0] + `)
+- Palauta tyhjä taulukko [] jos muistutuksia ei pyydetty`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -383,6 +405,7 @@ function fallbackAnalysis() {
     alert_reason: null,
     contact_family: false,
     contact_reason: null,
+    reminders: [],
   };
 }
 
