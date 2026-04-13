@@ -210,8 +210,8 @@ ${transcript}
 Palauta:
 {
   "mood_score": <numero 1-5 missä 1=erittäin huono, 5=erinomainen>,
-  "medications_taken": <true/false/null jos ei mainittu>,
-  "ate_today": <true/false/null jos ei mainittu>,
+  "medications_taken": <true jos vanhus kertoo ottaneensa lääkkeet, false VAIN jos vanhus sanoo ettei ole ottanut lääkkeitä, null jos lääkkeistä ei puhuttu tai vain kysyttiin/muistutettiin>,
+  "ate_today": <true jos vanhus kertoo syöneensä, false VAIN jos sanoo ettei ole syönyt, null jos ruoasta ei puhuttu>,
   "summary": "<2-3 lauseen yhteenveto suomeksi>",
   "needs_alert": <true jos mieliala 1-2 tai mainitsee kipua/hätää/kaatumista>,
   "alert_reason": "<syy hälytykselle suomeksi tai null>",
