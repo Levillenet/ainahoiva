@@ -113,6 +113,26 @@ serve(async (req) => {
     // Extract and save memories from transcript
     await extractMemories(elder.id, transcript, elder.full_name);
 
+    // Trigger Hume emotion analysis if audio URL available
+    const audioUrl = message?.call?.recordingUrl ?? null;
+    if (audioUrl && insertedReport) {
+      await supabase.from("call_reports").update({ audio_url: audioUrl }).eq("id", insertedReport.id);
+
+      // Fire and forget — don't await
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-emotion`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({
+          call_report_id: insertedReport.id,
+          audio_url: audioUrl,
+          elder_id: elder.id,
+        }),
+      });
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
