@@ -232,6 +232,50 @@ export type Database = {
           },
         ]
       }
+      missed_call_retries: {
+        Row: {
+          alert_sent: boolean | null
+          attempt_number: number | null
+          created_at: string | null
+          elder_id: string
+          id: string
+          is_resolved: boolean | null
+          max_attempts: number | null
+          next_retry_at: string | null
+          retry_interval_minutes: number | null
+        }
+        Insert: {
+          alert_sent?: boolean | null
+          attempt_number?: number | null
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          is_resolved?: boolean | null
+          max_attempts?: number | null
+          next_retry_at?: string | null
+          retry_interval_minutes?: number | null
+        }
+        Update: {
+          alert_sent?: boolean | null
+          attempt_number?: number | null
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          is_resolved?: boolean | null
+          max_attempts?: number | null
+          next_retry_at?: string | null
+          retry_interval_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missed_call_retries_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reminders: {
         Row: {
           created_at: string | null
@@ -269,6 +313,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      retry_settings: {
+        Row: {
+          alert_after_attempts: number | null
+          alert_method: string | null
+          id: string
+          max_attempts: number | null
+          retry_enabled: boolean | null
+          retry_interval_minutes: number | null
+          updated_at: string | null
+          weekend_calls: boolean | null
+        }
+        Insert: {
+          alert_after_attempts?: number | null
+          alert_method?: string | null
+          id?: string
+          max_attempts?: number | null
+          retry_enabled?: boolean | null
+          retry_interval_minutes?: number | null
+          updated_at?: string | null
+          weekend_calls?: boolean | null
+        }
+        Update: {
+          alert_after_attempts?: number | null
+          alert_method?: string | null
+          id?: string
+          max_attempts?: number | null
+          retry_enabled?: boolean | null
+          retry_interval_minutes?: number | null
+          updated_at?: string | null
+          weekend_calls?: boolean | null
+        }
+        Relationships: []
       }
       sms_log: {
         Row: {
