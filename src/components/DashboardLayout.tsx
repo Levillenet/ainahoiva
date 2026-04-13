@@ -16,7 +16,7 @@ const navItems = [
 ];
 
 const DashboardLayout = () => {
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -46,7 +46,7 @@ const DashboardLayout = () => {
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-custom hidden sm:block">{user?.email}</span>
+          <span className="text-sm text-muted-custom hidden sm:block">AinaHoiva</span>
           <Button variant="ghost" size="sm" onClick={signOut} className="text-cream/70 hover:text-cream">
             <LogOut className="w-4 h-4" />
           </Button>

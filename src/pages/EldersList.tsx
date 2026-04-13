@@ -17,7 +17,7 @@ const moodEmoji = (score: number | null) => {
 };
 
 const EldersList = () => {
-  const { user } = useAuth();
+  const { } = useAuth();
   const { toast } = useToast();
   const [elders, setElders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
