@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Users, Phone, AlertTriangle, Smile, Clock, PhoneCall, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import EmergencyBanner from '@/components/EmergencyBanner';
 
 interface StatCard {
   label: string;
@@ -140,6 +141,9 @@ const Dashboard = () => {
   return (
     <div>
       <h1 className="text-2xl font-bold text-cream mb-6">Yleiskatsaus</h1>
+
+      {/* Emergency alerts */}
+      <EmergencyBanner />
 
       {/* Active missed call alerts */}
       {retries.length > 0 && (
