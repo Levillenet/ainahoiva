@@ -116,3 +116,12 @@
     line-height: 1;
   }
 }
+
+@keyframes pulse-border {
+  0%, 100% { border-color: hsl(var(--terracotta)); }
+  50% { border-color: hsl(var(--terracotta) / 0.3); }
+}
+
+.animate-pulse-border {
+  animation: pulse-border 2s ease-in-out infinite;
+}

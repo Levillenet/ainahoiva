@@ -174,6 +174,133 @@ export type Database = {
         }
         Relationships: []
       }
+      emergency_alerts: {
+        Row: {
+          alert_reason: string | null
+          alert_time: string | null
+          alert_type: string | null
+          elder_id: string
+          followup_attempt: number | null
+          followup_call_at: string | null
+          followup_done: boolean | null
+          id: string
+          notes: string | null
+          omainen_notified: boolean | null
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          alert_reason?: string | null
+          alert_time?: string | null
+          alert_type?: string | null
+          elder_id: string
+          followup_attempt?: number | null
+          followup_call_at?: string | null
+          followup_done?: boolean | null
+          id?: string
+          notes?: string | null
+          omainen_notified?: boolean | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          alert_reason?: string | null
+          alert_time?: string | null
+          alert_type?: string | null
+          elder_id?: string
+          followup_attempt?: number | null
+          followup_call_at?: string | null
+          followup_done?: boolean | null
+          id?: string
+          notes?: string | null
+          omainen_notified?: boolean | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emergency_alerts_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emergency_settings: {
+        Row: {
+          alert_email: string | null
+          alert_method: string | null
+          alert_primary_phone: string | null
+          alert_secondary_phone: string | null
+          auto_end_call: boolean | null
+          custom_keywords: string | null
+          detect_confusion: boolean | null
+          detect_fall: boolean | null
+          detect_loneliness: boolean | null
+          detect_pain: boolean | null
+          elder_id: string
+          followup_call_enabled: boolean | null
+          followup_delay_minutes: number | null
+          followup_max_attempts: number | null
+          id: string
+          reassurance_message: string | null
+          speak_reassurance: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          alert_email?: string | null
+          alert_method?: string | null
+          alert_primary_phone?: string | null
+          alert_secondary_phone?: string | null
+          auto_end_call?: boolean | null
+          custom_keywords?: string | null
+          detect_confusion?: boolean | null
+          detect_fall?: boolean | null
+          detect_loneliness?: boolean | null
+          detect_pain?: boolean | null
+          elder_id: string
+          followup_call_enabled?: boolean | null
+          followup_delay_minutes?: number | null
+          followup_max_attempts?: number | null
+          id?: string
+          reassurance_message?: string | null
+          speak_reassurance?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          alert_email?: string | null
+          alert_method?: string | null
+          alert_primary_phone?: string | null
+          alert_secondary_phone?: string | null
+          auto_end_call?: boolean | null
+          custom_keywords?: string | null
+          detect_confusion?: boolean | null
+          detect_fall?: boolean | null
+          detect_loneliness?: boolean | null
+          detect_pain?: boolean | null
+          elder_id?: string
+          followup_call_enabled?: boolean | null
+          followup_delay_minutes?: number | null
+          followup_max_attempts?: number | null
+          id?: string
+          reassurance_message?: string | null
+          speak_reassurance?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emergency_settings_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: true
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_members: {
         Row: {
           elder_id: string
