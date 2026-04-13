@@ -1,60 +1,42 @@
 
 
-## Korjaa puhelinnumeroiden vertailu välilyöntiongelman takia
+## Muistutuksen toimitustavan kysyminen puhelussa
 
-### Ongelma
-JYKÄ:n puhelinnumero tietokannassa on `+358 44 0444298` mutta Vapi lähettää `+358440444298`. Suora `eq()`-vertailu epäonnistuu, eikä raporttia tallenneta.
-
-### Ratkaisu
-Kaksi muutosta varmuuden vuoksi:
-
-**1. `supabase/functions/vapi-webhook/index.ts`**
-- Poista välilyönnit ja viivat saapuvasta puhelinnumerosta ennen hakua
-- Käytä tietokantahakua, joka poistaa välilyönnit myös tietokannan puolelta: `replace(phone_number, ' ', '')` SQL-funktiolla
-- Käytännössä: vaihda `.eq("phone_number", callerNumber)` käyttämään normalisoitua numeroa, esim. haetaan kaikki elderit ja vertaillaan normalisoituna, TAI luodaan tietokantafunktio
-
-Yksinkertaisin ratkaisu: normalisoi numero koodissa ja käytä Supabase `.filter()` tai `.rpc()` -kutsua. Koska Supabase JS-kirjasto ei tue SQL-funktioita suoraan eq:ssa, paras tapa on:
-- Luodaan DB-funktio `find_elder_by_phone(p_phone text)` joka vertailee normalisoituja numeroita
-- TAI normalisoidaan puhelinnumerot tietokannassa (poistetaan välilyönnit) ja normalisoidaan myös saapuva numero
-
-Suositeltavin: **Normalisoi saapuva numero JA tee haku `ilike`/`filter`-tyyppisellä vertailulla**, tai vielä paremmin:
-
-**Vaihtoehto A (nopein, luotettavin):**
-1. Luo DB-funktio `find_elder_by_phone` joka normalisoi molemmat puolet
-2. Kutsu sitä webhookissa `supabase.rpc("find_elder_by_phone", { p_phone: normalizedNumber })`
-
-**Vaihtoehto B (yksinkertaisin):**
-1. Normalisoi saapuva numero (poista välilyönnit/viivat)
-2. Hae kaikki elderit ja vertaa normalisoituna koodissa — ei skaalaudu hyvin
-
-**Valittu ratkaisu: Vaihtoehto A**
+### Tavoite
+Kun vanhus pyytää muistutusta puhelun aikana, järjestelmä tallentaa myös toimitustavan (puhelu vai SMS) sen perusteella mitä vanhus toivoo. AI-analyysi tunnistaa tämän transkriptista.
 
 ### Muutokset
 
-**Tietokantamigraatio:**
-```sql
-CREATE OR REPLACE FUNCTION public.find_elder_by_phone(p_phone text)
-RETURNS TABLE(id uuid, full_name text)
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT id, full_name
-  FROM elders
-  WHERE replace(replace(replace(phone_number, ' ', ''), '-', ''), '(', '') 
-      = replace(replace(replace(p_phone, ' ', ''), '-', ''), '(', '')
-  LIMIT 1;
-$$;
+**1. `supabase/functions/vapi-webhook/index.ts`**
+- Lisätään `analyzeTranscript`-funktion promptiin `reminders`-kenttä:
+  ```json
+  "reminders": [
+    {"message": "Parturi", "date": "2026-04-14", "time": "10:00", "method": "call|sms"}
+  ]
+  ```
+- Promptissa ohjeistetaan AI:ta päättelemään method transkriptista: jos vanhus sanoo "soita" tai "muistuta soittamalla" → `call`, jos "laita viesti" tai "tekstiviesti" → `sms`, muuten oletus `call`
+- Analyysin jälkeen tallennetaan muistutukset `reminders`-tauluun automaattisesti
+
+**2. Vapi-assistantin prompti** (päivitetään Vapi API:n kautta tai manuaalisesti)
+- Lisätään ohje: kun vanhus pyytää muistutusta, assistantti kysyy "Haluatko että soitan sinulle muistutukseksi vai lähetänkö tekstiviestin?"
+- Assistantti vahvistaa: "Selvä, laitan muistutuksen [puheluna/viestinä] [aika]"
+
+### Tekninen toteutus
+
+Webhookiin lisätään analyysin jälkeen:
+```typescript
+if (analysis.reminders?.length) {
+  for (const rem of analysis.reminders) {
+    await supabase.from("reminders").insert({
+      elder_id: elder.id,
+      message: rem.message,
+      remind_at: `${rem.date}T${rem.time}:00+03:00`,
+      method: rem.method || "call",
+      is_sent: false,
+    });
+  }
+}
 ```
 
-**`supabase/functions/vapi-webhook/index.ts`:**
-- Normalisoi `callerNumber`: `callerNumber.replace(/[\s\-()]/g, "")`
-- Korvaa suora `.from("elders").select().eq("phone_number", ...)` -haku kutsulla:
-  ```typescript
-  const { data: elders } = await supabase.rpc("find_elder_by_phone", { p_phone: normalizedNumber });
-  const elder = elders?.[0] ?? null;
-  ```
-
-Nämä kaksi muutosta varmistavat, että puhelinnumeroiden vertailu toimii riippumatta muotoilusta.
+Ei tietokantamuutoksia — `reminders`-taulu tukee jo `method`-kenttää arvoilla `sms`, `call` ja `both`.
 
