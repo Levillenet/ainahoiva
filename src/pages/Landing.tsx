@@ -13,9 +13,9 @@ const Landing = () => {
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = signIn(password);
+    const success = await signIn(password);
     if (!success) {
       setError(true);
       setTimeout(() => setError(false), 2000);
