@@ -67,6 +67,41 @@ export type Database = {
           },
         ]
       }
+      elder_memory: {
+        Row: {
+          content: string
+          created_at: string | null
+          elder_id: string
+          id: string
+          memory_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          memory_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          memory_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elder_memory_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       elders: {
         Row: {
           address: string | null
