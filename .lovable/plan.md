@@ -1,36 +1,24 @@
 
 
-## Vapi Assistant webhook-URL:n päivitys
+## Parannussuunnitelma
 
-### Tavoite
-Päivitä Vapi-assistantin (`c19c2445-c22a-4c52-8831-3b882fc38d4b`) `serverUrl`-kenttä osoittamaan webhook-funktioosi.
+### Ongelma 1: Vanhuksen pyyntö kutsua omainen
+Tällä hetkellä AI analysoi vain mielialan, muttei tunnista vanhuksen eksplisiittistä pyyntöä ("soita tyttärelleni", "tarvitsen apua"). 
 
-### Toteutus
+**Ratkaisu:** Päivitä `vapi-webhook` analyzeTranscript-prompti lisäämällä uusi kenttä:
+- `"contact_family": true/false` — tunnistaa jos vanhus pyytää yhteydenottoa omaisiin
+- `"contact_reason": "Pyysi soittamaan tyttärelleen"` — syy
 
-Luodaan väliaikainen edge function `update-vapi-assistant`, joka tekee PATCH-kutsun Vapi API:in:
+Jos `contact_family === true`, lähetetään SMS omaisille vanhuksen pyynnöstä.
 
-```typescript
-// supabase/functions/update-vapi-assistant/index.ts
-const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
-const res = await fetch(
-  "https://api.vapi.ai/assistant/c19c2445-c22a-4c52-8831-3b882fc38d4b",
-  {
-    method: "PATCH",
-    headers: {
-      "Authorization": `Bearer ${VAPI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      serverUrl: "https://bjsthjvpotfcxgqxtoiy.supabase.co/functions/v1/vapi-webhook"
-    }),
-  }
-);
-```
+### Ongelma 2: Hume-analyysi ei näy
+Tämä toimii jo teknisesti — data puuttuu koska puhelut eivät ole onnistuneet (0s kesto, ei ääntä). Kun seuraava puhelu onnistuu ja Vapi palauttaa recordingUrl:n, Hume-analyysi käynnistyy ja data näkyy ElderDetail-sivulla.
 
-### Vaiheet
-1. Luo `update-vapi-assistant` edge function
-2. Deploy se
-3. Kutsu sitä kerran curl-työkalulla
-4. Varmista vastaus (serverUrl päivittynyt)
-5. Poista funktio (ei enää tarvita)
+**Lisäparannus:** Näytä Dashboard-sivulla selkeämmin Hume-tunnetiedot, ja lisää "Ei tunneanalyysiä" -teksti kun dataa ei ole.
+
+### Tekniset muutokset
+
+1. **`vapi-webhook/index.ts`** — Päivitä analyzeTranscript-prompti tunnistamaan omaisen kutsumispyyntö + lisää logiikka SMS-lähetykseen
+2. **`src/pages/ElderDetail.tsx`** — Näytä selkeä "Ei tunneanalyysiä saatavilla" kun hume-data on null, ja näytä `mood_source` (gpt/hume+gpt)
+3. **`src/pages/Dashboard.tsx`** — Lisää info kun Hume-dataa ei ole vielä
 
