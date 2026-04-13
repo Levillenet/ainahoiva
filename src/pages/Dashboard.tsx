@@ -21,10 +21,18 @@ interface ActiveRetry {
   elder_name: string;
 }
 
+interface EmotionAvg {
+  joy: number;
+  sadness: number;
+  anxiety: number;
+  tiredness: number;
+}
+
 const Dashboard = () => {
   const [stats, setStats] = useState<StatCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [retries, setRetries] = useState<ActiveRetry[]>([]);
+  const [emotions, setEmotions] = useState<EmotionAvg | null>(null);
 
   const fetchData = useCallback(async () => {
     const { count: elderCount } = await supabase.from('elders').select('*', { count: 'exact', head: true }).eq('is_active', true);
@@ -78,6 +86,28 @@ const Dashboard = () => {
         ...r,
         elder_name: r.elders?.full_name || '—',
       })));
+    }
+
+    // Fetch today's emotion averages
+    const { data: emotionReports } = await supabase
+      .from('call_reports')
+      .select('hume_joy, hume_sadness, hume_anxiety, hume_tiredness')
+      .gte('called_at', today)
+      .not('hume_raw', 'is', null);
+
+    if (emotionReports && emotionReports.length > 0) {
+      const avg = (key: string) => {
+        const vals = emotionReports.map((r: any) => r[key]).filter((v: any) => v != null);
+        return vals.length > 0 ? vals.reduce((s: number, v: number) => s + v, 0) / vals.length : 0;
+      };
+      setEmotions({
+        joy: avg('hume_joy'),
+        sadness: avg('hume_sadness'),
+        anxiety: avg('hume_anxiety'),
+        tiredness: avg('hume_tiredness'),
+      });
+    } else {
+      setEmotions(null);
     }
 
     setLoading(false);
