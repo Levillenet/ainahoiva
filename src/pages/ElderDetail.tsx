@@ -407,7 +407,53 @@ const ElderDetail = () => {
 
       {/* Medications */}
       <div className="bg-card rounded-lg p-6 border border-border">
-        <h2 className="text-lg font-bold text-cream mb-4"><Pill className="w-5 h-5 inline mr-2 text-sage" />Lääkkeet</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-cream"><Pill className="w-5 h-5 inline mr-2 text-sage" />Lääkkeet</h2>
+          <Dialog open={medDialogOpen} onOpenChange={setMedDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="border-sage text-sage hover:bg-sage/10">
+                <Plus className="w-4 h-4 mr-1" /> Lisää lääke
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="text-cream">Lisää lääke</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-cream">Nimi *</Label>
+                  <input value={medForm.name} onChange={e => setMedForm(f => ({ ...f, name: e.target.value }))} className="w-full bg-muted border border-border rounded px-3 py-2 text-cream" placeholder="Esim. Aspirin" />
+                </div>
+                <div>
+                  <Label className="text-cream">Annostus</Label>
+                  <input value={medForm.dosage} onChange={e => setMedForm(f => ({ ...f, dosage: e.target.value }))} className="w-full bg-muted border border-border rounded px-3 py-2 text-cream" placeholder="Esim. 100 mg" />
+                </div>
+                <div>
+                  <Label className="text-cream">Ajoitus</Label>
+                  <div className="flex gap-4 mt-1">
+                    <label className="flex items-center gap-2 text-cream text-sm">
+                      <input type="checkbox" checked={medForm.morning} onChange={e => setMedForm(f => ({ ...f, morning: e.target.checked }))} /> Aamu
+                    </label>
+                    <label className="flex items-center gap-2 text-cream text-sm">
+                      <input type="checkbox" checked={medForm.noon} onChange={e => setMedForm(f => ({ ...f, noon: e.target.checked }))} /> Päivä
+                    </label>
+                    <label className="flex items-center gap-2 text-cream text-sm">
+                      <input type="checkbox" checked={medForm.evening} onChange={e => setMedForm(f => ({ ...f, evening: e.target.checked }))} /> Ilta
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-cream">Ohjeet</Label>
+                  <Textarea value={medForm.instructions} onChange={e => setMedForm(f => ({ ...f, instructions: e.target.value }))} className="bg-muted border-border text-cream" placeholder="Esim. Ota ruoan yhteydessä" />
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button variant="ghost" onClick={() => setMedDialogOpen(false)} className="text-cream">Peruuta</Button>
+                  <Button onClick={handleAddMed} className="bg-gold text-primary-foreground hover:bg-gold/90">Tallenna</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
         {meds.length === 0 ? (
           <p className="text-muted-foreground">Ei lääkkeitä lisätty.</p>
         ) : (
@@ -419,7 +465,25 @@ const ElderDetail = () => {
                   <p className="text-muted-foreground text-sm">
                     {[med.morning && 'Aamu', med.noon && 'Päivä', med.evening && 'Ilta'].filter(Boolean).join(', ') || 'Ei ajoitusta'}
                   </p>
+                  {med.instructions && <p className="text-muted-foreground text-xs mt-1">{med.instructions}</p>}
                 </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-terracotta shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-card border-border">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-cream">Poista lääke?</AlertDialogTitle>
+                      <AlertDialogDescription>Haluatko varmasti poistaa lääkkeen {med.name}?</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="text-cream">Peruuta</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDeleteMed(med.id)} className="bg-terracotta text-cream hover:bg-terracotta/90">Poista</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             ))}
           </div>
@@ -428,15 +492,81 @@ const ElderDetail = () => {
 
       {/* Family */}
       <div className="bg-card rounded-lg p-6 border border-border">
-        <h2 className="text-lg font-bold text-cream mb-4"><Users className="w-5 h-5 inline mr-2 text-sage" />Omaiset</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-cream"><Users className="w-5 h-5 inline mr-2 text-sage" />Omaiset</h2>
+          <Dialog open={familyDialogOpen} onOpenChange={setFamilyDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="border-sage text-sage hover:bg-sage/10">
+                <Plus className="w-4 h-4 mr-1" /> Lisää omainen
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="text-cream">Lisää omainen</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-cream">Nimi *</Label>
+                  <input value={familyForm.full_name} onChange={e => setFamilyForm(f => ({ ...f, full_name: e.target.value }))} className="w-full bg-muted border border-border rounded px-3 py-2 text-cream" placeholder="Esim. Ritva Mäkinen" />
+                </div>
+                <div>
+                  <Label className="text-cream">Puhelinnumero *</Label>
+                  <input value={familyForm.phone_number} onChange={e => setFamilyForm(f => ({ ...f, phone_number: e.target.value }))} className="w-full bg-muted border border-border rounded px-3 py-2 text-cream" placeholder="+358..." />
+                </div>
+                <div>
+                  <Label className="text-cream">Sähköposti</Label>
+                  <input value={familyForm.email} onChange={e => setFamilyForm(f => ({ ...f, email: e.target.value }))} className="w-full bg-muted border border-border rounded px-3 py-2 text-cream" placeholder="ritva@esimerkki.fi" />
+                </div>
+                <div>
+                  <Label className="text-cream">Suhde</Label>
+                  <input value={familyForm.relationship} onChange={e => setFamilyForm(f => ({ ...f, relationship: e.target.value }))} className="w-full bg-muted border border-border rounded px-3 py-2 text-cream" placeholder="Esim. Tytär" />
+                </div>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-cream text-sm">
+                    <input type="checkbox" checked={familyForm.receives_alerts} onChange={e => setFamilyForm(f => ({ ...f, receives_alerts: e.target.checked }))} /> Vastaanottaa hälytykset
+                  </label>
+                  <label className="flex items-center gap-2 text-cream text-sm">
+                    <input type="checkbox" checked={familyForm.receives_daily_report} onChange={e => setFamilyForm(f => ({ ...f, receives_daily_report: e.target.checked }))} /> Päivittäinen raportti
+                  </label>
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button variant="ghost" onClick={() => setFamilyDialogOpen(false)} className="text-cream">Peruuta</Button>
+                  <Button onClick={handleAddFamily} className="bg-gold text-primary-foreground hover:bg-gold/90">Tallenna</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
         {family.length === 0 ? (
           <p className="text-muted-foreground">Ei omaisia lisätty.</p>
         ) : (
           <div className="space-y-3">
             {family.map(f => (
-              <div key={f.id} className="bg-muted rounded-lg p-4">
-                <p className="text-cream font-medium">{f.full_name} {f.relationship && `(${f.relationship})`}</p>
-                <p className="text-muted-foreground text-sm">{f.phone_number} {f.email && `· ${f.email}`}</p>
+              <div key={f.id} className="bg-muted rounded-lg p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-cream font-medium">{f.full_name} {f.relationship && `(${f.relationship})`}</p>
+                  <p className="text-muted-foreground text-sm">{f.phone_number} {f.email && `· ${f.email}`}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {f.receives_alerts && '🔔 Hälytykset'} {f.receives_daily_report && '📊 Raportit'}
+                  </p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-terracotta shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-card border-border">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-cream">Poista omainen?</AlertDialogTitle>
+                      <AlertDialogDescription>Haluatko varmasti poistaa omaisen {f.full_name}?</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="text-cream">Peruuta</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDeleteFamily(f.id)} className="bg-terracotta text-cream hover:bg-terracotta/90">Poista</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             ))}
           </div>
