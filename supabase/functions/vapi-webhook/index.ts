@@ -76,15 +76,30 @@ serve(async (req) => {
 
     if (error) throw error;
 
-    // Detect missed call (duration < 10 seconds)
-    if (duration < 10 && insertedReport) {
+    // Detect missed call (duration < 15 seconds)
+    if (duration < 15 && insertedReport) {
       await supabase.from("call_reports").update({
         ai_summary: "Ei vastattu puheluun",
         alert_sent: true,
         alert_reason: "Vanhus ei vastannut soittoon",
       }).eq("id", insertedReport.id);
 
-      await sendAlertSms(elder.id, elder.full_name, "Ei vastannut soittoon. Tarkistakaa vointi.");
+      // Trigger missed call handler for retry logic
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/handle-missed-call`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({ elder_id: elder.id }),
+      });
+    } else if (duration >= 15) {
+      // Call was answered — resolve any pending retries
+      await supabase
+        .from("missed_call_retries")
+        .update({ is_resolved: true })
+        .eq("elder_id", elder.id)
+        .eq("is_resolved", false);
     }
 
     // Send alert SMS log if needed
@@ -192,11 +207,19 @@ async function sendAlertSms(elderId: string, elderName: string, reason: string) 
   if (!family?.length) return;
 
   for (const member of family) {
-    await supabase.from("sms_log").insert({
-      elder_id: elderId,
-      to_number: member.phone_number,
-      message: `⚠️ AinaHoiva HÄLYTYS: ${elderName} tarvitsee huomiota. ${reason}`,
-      type: "alert",
+    const message = `⚠️ AinaHoiva HÄLYTYS: ${elderName} tarvitsee huomiota. ${reason}`;
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({
+        elder_id: elderId,
+        to_number: member.phone_number,
+        message,
+        type: "alert",
+      }),
     });
   }
 }
@@ -221,11 +244,18 @@ async function sendSummary(elderId: string, elderName: string, analysis: Record<
   const message = `AinaHoiva — ${elderName}\n${moodEmoji} Mieliala: ${moodScore}/5\n${medsText}\n\n${analysis.summary}`;
 
   for (const member of family) {
-    await supabase.from("sms_log").insert({
-      elder_id: elderId,
-      to_number: member.phone_number,
-      message,
-      type: "summary",
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({
+        elder_id: elderId,
+        to_number: member.phone_number,
+        message,
+        type: "summary",
+      }),
     });
   }
 }

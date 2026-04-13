@@ -14,6 +14,7 @@ import CallSchedule from "./pages/CallSchedule";
 import Reports from "./pages/Reports";
 import Reminders from "./pages/Reminders";
 import SettingsPage from "./pages/SettingsPage";
+import SmsLog from "./pages/SmsLog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="aikataulu" element={<CallSchedule />} />
               <Route path="raportit" element={<Reports />} />
               <Route path="muistutukset" element={<Reminders />} />
+              <Route path="viestit" element={<SmsLog />} />
               <Route path="asetukset" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
