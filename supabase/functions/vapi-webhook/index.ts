@@ -24,7 +24,6 @@ serve(async (req) => {
     const body = await req.json();
     const { message } = body;
 
-    // Only process end-of-call reports
     if (message?.type !== "end-of-call-report") {
       return new Response(JSON.stringify({ received: true }), {
         status: 200,
@@ -34,7 +33,8 @@ serve(async (req) => {
 
     const vapiCallId = message?.call?.id;
     const callerNumber = message?.call?.customer?.number;
-    const transcript = message?.transcript || "";
+    // Transcript fallback: check both locations
+    const transcript = message?.transcript || message?.artifact?.transcript || "";
     const duration = message?.call?.endedAt
       ? Math.floor(
           (new Date(message.call.endedAt).getTime() -
@@ -42,6 +42,8 @@ serve(async (req) => {
             1000
         )
       : 0;
+
+    console.log(`[vapi-webhook] Transcript length: ${transcript.length}, Duration: ${duration}, CallerNumber: ${callerNumber}`);
 
     // Find elder by phone number
     const { data: elder } = await supabase
@@ -58,8 +60,66 @@ serve(async (req) => {
       });
     }
 
-    // Analyze transcript with Lovable AI
+    // === MISSED CALL CHECK FIRST ===
+    const hasRealConversation = transcript.length > 50;
+    console.log(`[vapi-webhook] hasRealConversation: ${hasRealConversation}`);
+
+    if (!hasRealConversation) {
+      console.log(`[vapi-webhook] Missed call detected for elder ${elder.id}`);
+      
+      const missedData = {
+        elder_id: elder.id,
+        duration_seconds: duration,
+        mood_score: null,
+        medications_taken: null,
+        ate_today: null,
+        transcript: transcript || null,
+        ai_summary: "Ei vastattu puheluun",
+        alert_sent: true,
+        alert_reason: "Vanhus ei vastannut soittoon",
+      };
+
+      let insertedReport: { id: string } | null = null;
+
+      if (vapiCallId) {
+        const { data: updated } = await supabase
+          .from("call_reports")
+          .update(missedData)
+          .eq("vapi_call_id", vapiCallId)
+          .select("id")
+          .maybeSingle();
+        if (updated) insertedReport = updated;
+      }
+
+      if (!insertedReport) {
+        const { data: inserted } = await supabase
+          .from("call_reports")
+          .insert({ ...missedData, call_type: "inbound", vapi_call_id: vapiCallId || null })
+          .select("id")
+          .single();
+        insertedReport = inserted;
+      }
+
+      // Trigger retry logic
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/handle-missed-call`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({ elder_id: elder.id }),
+      });
+
+      return new Response(JSON.stringify({ success: true, missed: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === REAL CONVERSATION — proceed with AI analysis ===
+    console.log(`[vapi-webhook] Real conversation detected, running AI analysis...`);
     const analysis = await analyzeTranscript(transcript);
+    console.log(`[vapi-webhook] AI analysis result:`, JSON.stringify(analysis));
 
     const reportData = {
       elder_id: elder.id,
@@ -75,7 +135,6 @@ serve(async (req) => {
 
     let insertedReport: { id: string } | null = null;
 
-    // Try to update existing report by vapi_call_id (outbound calls)
     if (vapiCallId) {
       const { data: updated, error: updateError } = await supabase
         .from("call_reports")
@@ -91,7 +150,6 @@ serve(async (req) => {
       }
     }
 
-    // If no existing report found, insert new one (inbound calls)
     if (!insertedReport) {
       const { data: inserted, error: insertError } = await supabase
         .from("call_reports")
@@ -108,36 +166,14 @@ serve(async (req) => {
       console.log("Inserted new report:", inserted?.id);
     }
 
-    // Detect missed call — use transcript length as primary signal since duration can be 0
-    const hasRealConversation = transcript.length > 50;
-    const isMissedCall = !hasRealConversation && duration < 30;
-    
-    if (isMissedCall && insertedReport) {
-      await supabase.from("call_reports").update({
-        ai_summary: "Ei vastattu puheluun",
-        alert_sent: true,
-        alert_reason: "Vanhus ei vastannut soittoon",
-      }).eq("id", insertedReport.id);
+    // Call was answered — resolve any pending retries
+    await supabase
+      .from("missed_call_retries")
+      .update({ is_resolved: true })
+      .eq("elder_id", elder.id)
+      .eq("is_resolved", false);
 
-      // Trigger missed call handler for retry logic
-      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/handle-missed-call`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({ elder_id: elder.id }),
-      });
-    } else if (hasRealConversation) {
-      // Call was answered — resolve any pending retries
-      await supabase
-        .from("missed_call_retries")
-        .update({ is_resolved: true })
-        .eq("elder_id", elder.id)
-        .eq("is_resolved", false);
-    }
-
-    // Send alert SMS log if needed
+    // Send alert SMS if needed
     if (analysis.needs_alert) {
       await sendAlertSms(elder.id, elder.full_name, analysis.alert_reason);
     }
@@ -146,7 +182,6 @@ serve(async (req) => {
     if (analysis.contact_family) {
       const reason = analysis.contact_reason || "Vanhus pyysi yhteydenottoa omaisiin";
       await sendFamilyContactSms(elder.id, elder.full_name, reason);
-      // Also mark alert on report
       if (insertedReport) {
         await supabase.from("call_reports").update({
           alert_sent: true,
@@ -155,20 +190,22 @@ serve(async (req) => {
       }
     }
 
-    // Send daily summary SMS log
+    // Send daily summary
     await sendSummary(elder.id, elder.full_name, analysis);
 
-    // Extract and save memories from transcript
-    console.log("Starting memory extraction for elder:", elder.id, "transcript length:", transcript.length);
-    await extractMemories(elder.id, transcript, elder.full_name);
-    console.log("Memory extraction completed for elder:", elder.id);
+    // Extract and save memories
+    console.log("[vapi-webhook] Starting memory extraction for elder:", elder.id);
+    try {
+      await extractMemories(elder.id, transcript, elder.full_name);
+      console.log("[vapi-webhook] Memory extraction completed for elder:", elder.id);
+    } catch (memErr) {
+      console.error("[vapi-webhook] Memory extraction failed:", memErr);
+    }
 
     // Trigger Hume emotion analysis if audio URL available
     const audioUrl = message?.call?.recordingUrl ?? null;
     if (audioUrl && insertedReport) {
       await supabase.from("call_reports").update({ audio_url: audioUrl }).eq("id", insertedReport.id);
-
-      // Fire and forget — don't await
       fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-emotion`, {
         method: "POST",
         headers: {
@@ -245,8 +282,6 @@ Palauta:
 
     const data = await response.json();
     const content = data.choices[0].message.content;
-
-    // Extract JSON from response (handle markdown code blocks)
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
@@ -363,7 +398,12 @@ async function sendSummary(elderId: string, elderName: string, analysis: Record<
 
 async function extractMemories(elderId: string, transcript: string, elderName: string) {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return;
+  if (!LOVABLE_API_KEY) {
+    console.log("[extractMemories] No LOVABLE_API_KEY, skipping");
+    return;
+  }
+
+  console.log(`[extractMemories] Starting for elder ${elderId}, transcript length: ${transcript.length}`);
 
   const prompt = `Analysoi tämä puhelinkeskustelu ja poimi tärkeät muistettavat asiat vanhuksesta.
 Palauta VAIN JSON-taulukko, ei muuta tekstiä.
@@ -407,29 +447,37 @@ Palauta tyhjä taulukko [] jos ei ole mitään muistettavaa.
     });
 
     if (!response.ok) {
-      console.error("Memory extraction AI error:", response.status);
+      console.error("[extractMemories] AI error:", response.status);
       return;
     }
 
     const data = await response.json();
     const content = data.choices[0].message.content;
+    console.log(`[extractMemories] AI response length: ${content.length}`);
     const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return;
+    if (!jsonMatch) {
+      console.log("[extractMemories] No JSON array found in response");
+      return;
+    }
 
     const memories = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(memories) || memories.length === 0) return;
+    if (!Array.isArray(memories) || memories.length === 0) {
+      console.log("[extractMemories] No memories to save");
+      return;
+    }
 
     for (const memory of memories) {
       if (memory.memory_type && memory.content) {
-        await supabase.from("elder_memory").insert({
+        const { error } = await supabase.from("elder_memory").insert({
           elder_id: elderId,
           memory_type: memory.memory_type,
           content: memory.content,
         });
+        if (error) console.error("[extractMemories] Insert error:", error);
       }
     }
-    console.log(`Extracted ${memories.length} memories for elder ${elderId}`);
+    console.log(`[extractMemories] Saved ${memories.length} memories for elder ${elderId}`);
   } catch (err) {
-    console.error("Memory extraction error:", err);
+    console.error("[extractMemories] Error:", err);
   }
 }
