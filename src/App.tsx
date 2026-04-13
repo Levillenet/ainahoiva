@@ -10,6 +10,7 @@ import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import EldersList from "./pages/EldersList";
 import ElderDetail from "./pages/ElderDetail";
+import CallSchedule from "./pages/CallSchedule";
 import Reports from "./pages/Reports";
 import Reminders from "./pages/Reminders";
 import SettingsPage from "./pages/SettingsPage";
@@ -30,6 +31,7 @@ const App = () => (
               <Route index element={<Dashboard />} />
               <Route path="vanhukset" element={<EldersList />} />
               <Route path="vanhukset/:id" element={<ElderDetail />} />
+              <Route path="aikataulu" element={<CallSchedule />} />
               <Route path="raportit" element={<Reports />} />
               <Route path="muistutukset" element={<Reminders />} />
               <Route path="asetukset" element={<SettingsPage />} />
