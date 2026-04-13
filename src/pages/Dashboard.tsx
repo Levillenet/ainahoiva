@@ -119,6 +119,30 @@ const Dashboard = () => {
       setEmotions(null);
     }
 
+    // Fetch medication summary for today
+    const { data: allMeds } = await supabase.from('medications').select('id, elder_id, morning, noon, evening');
+    const { data: todayMedLogs } = await supabase
+      .from('medication_logs')
+      .select('medication_id, scheduled_time, taken')
+      .eq('log_date', today);
+
+    if (allMeds && allMeds.length > 0) {
+      const countForTime = (time: string) => {
+        const total = allMeds.filter((m: any) => m[time]).length;
+        const taken = todayMedLogs?.filter((l: any) => l.scheduled_time === time && l.taken).length || 0;
+        return { taken, total };
+      };
+      const ms = {
+        morning: countForTime('morning'),
+        noon: countForTime('noon'),
+        evening: countForTime('evening'),
+        anyMissed: (todayMedLogs || []).some((l: any) => !l.taken && l.scheduled_time),
+      };
+      setMedSummary(ms);
+    } else {
+      setMedSummary(null);
+    }
+
     setLoading(false);
   }, []);
 
