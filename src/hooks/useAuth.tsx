@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   isAuthenticated: boolean;
   loading: boolean;
-  signIn: (password: string) => boolean;
+  signIn: (password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
 }
 
@@ -34,7 +34,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
-      // Authenticated if password gate passed (Supabase session is bonus for RLS)
+      // If password gate was passed but no Supabase session, sign in anonymously
+      if (stored === 'true' && !session) {
+        const { data } = await supabase.auth.signInAnonymously();
+        setSession(data.session);
+        setUser(data.user);
+      }
       setIsAuthenticated(stored === 'true');
       setLoading(false);
     };
@@ -43,10 +48,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = (password: string): boolean => {
+  const signIn = async (password: string): Promise<boolean> => {
     if (password !== CORRECT_PASSWORD) return false;
     localStorage.setItem(AUTH_KEY, 'true');
     setIsAuthenticated(true);
+    // Ensure a Supabase session exists for RLS
+    const { data: { session: existing } } = await supabase.auth.getSession();
+    if (!existing) {
+      await supabase.auth.signInAnonymously();
+    }
     return true;
   };
 
