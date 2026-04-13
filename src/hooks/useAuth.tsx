@@ -1,51 +1,43 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  isAuthenticated: boolean;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
-  signOut: () => Promise<void>;
+  signIn: (password: string) => boolean;
+  signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const CORRECT_PASSWORD = 'hoivaamaan2026';
+const AUTH_KEY = 'ainahoiva_auth';
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const stored = localStorage.getItem(AUTH_KEY);
+    setIsAuthenticated(stored === 'true');
+    setLoading(false);
   }, []);
 
-  const signInWithGoogle = async () => {
-    await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
+  const signIn = (password: string): boolean => {
+    if (password === CORRECT_PASSWORD) {
+      localStorage.setItem(AUTH_KEY, 'true');
+      setIsAuthenticated(true);
+      return true;
+    }
+    return false;
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = () => {
+    localStorage.removeItem(AUTH_KEY);
+    setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ isAuthenticated, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
