@@ -49,6 +49,10 @@ const ElderDetail = () => {
   const [calling, setCalling] = useState(false);
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [memoryForm, setMemoryForm] = useState({ memory_type: 'person', content: '' });
+  const [medDialogOpen, setMedDialogOpen] = useState(false);
+  const [medForm, setMedForm] = useState({ name: '', dosage: '', morning: false, noon: false, evening: false, instructions: '' });
+  const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
+  const [familyForm, setFamilyForm] = useState({ full_name: '', phone_number: '', email: '', relationship: '', receives_alerts: true, receives_daily_report: true });
 
   const fetchReports = async () => {
     if (!id) return;
