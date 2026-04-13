@@ -293,6 +293,33 @@ async function sendAlertSms(elderId: string, elderName: string, reason: string) 
   }
 }
 
+async function sendFamilyContactSms(elderId: string, elderName: string, reason: string) {
+  const { data: family } = await supabase
+    .from("family_members")
+    .select("phone_number, full_name")
+    .eq("elder_id", elderId)
+    .eq("receives_alerts", true);
+
+  if (!family?.length) return;
+
+  for (const member of family) {
+    const message = `📞 AinaHoiva: ${elderName} pyysi yhteydenottoa. Syy: ${reason}. Soittakaa hänelle.`;
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({
+        elder_id: elderId,
+        to_number: member.phone_number,
+        message,
+        type: "alert",
+      }),
+    });
+  }
+}
+
 async function sendSummary(elderId: string, elderName: string, analysis: Record<string, unknown>) {
   const { data: family } = await supabase
     .from("family_members")
