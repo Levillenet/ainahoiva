@@ -1,24 +1,38 @@
 
 
-## Parannussuunnitelma
+## Korjaussuunnitelma: "Ei vastattu" ylikirjoittaa oikeat raportit
 
-### Ongelma 1: Vanhuksen pyyntö kutsua omainen
-Tällä hetkellä AI analysoi vain mielialan, muttei tunnista vanhuksen eksplisiittistä pyyntöä ("soita tyttärelleni", "tarvitsen apua"). 
+### Ongelma
+Vapi webhook käsittelee puhelun oikein: AI-analyysi antaa mood 5/5, litterointi tallennetaan, mutta **missatun puhelun tarkistus (rivi 112-118) ylikirjoittaa tuloksen** tekstillä "Ei vastattu puheluun". Tämä tapahtuu koska `duration` on aina 0 (Vapi raportoi 0s keston).
 
-**Ratkaisu:** Päivitä `vapi-webhook` analyzeTranscript-prompti lisäämällä uusi kenttä:
-- `"contact_family": true/false` — tunnistaa jos vanhus pyytää yhteydenottoa omaisiin
-- `"contact_reason": "Pyysi soittamaan tyttärelleen"` — syy
+Lisäksi `extractMemories`-funktiota ei koskaan kutsuta (ei lokeja), mikä viittaa siihen että funktio kaatuu tai aikakatkaisee ennen sitä.
 
-Jos `contact_family === true`, lähetetään SMS omaisille vanhuksen pyynnöstä.
+### Ratkaisu: `vapi-webhook/index.ts`
 
-### Ongelma 2: Hume-analyysi ei näy
-Tämä toimii jo teknisesti — data puuttuu koska puhelut eivät ole onnistuneet (0s kesto, ei ääntä). Kun seuraava puhelu onnistuu ja Vapi palauttaa recordingUrl:n, Hume-analyysi käynnistyy ja data näkyy ElderDetail-sivulla.
+**1. Korjaa missatun puhelun logiikka** — Siirrä tarkistus ENNEN AI-analyysiä ja käytä pelkkää transkriptia signaalina:
 
-**Lisäparannus:** Näytä Dashboard-sivulla selkeämmin Hume-tunnetiedot, ja lisää "Ei tunneanalyysiä" -teksti kun dataa ei ole.
+```typescript
+// Detect missed call FIRST — before doing expensive AI analysis
+const hasRealConversation = transcript.length > 50;
 
-### Tekniset muutokset
+if (!hasRealConversation) {
+  // Short/empty transcript = missed call → update and return early
+  // ... update report, trigger handle-missed-call, return
+}
 
-1. **`vapi-webhook/index.ts`** — Päivitä analyzeTranscript-prompti tunnistamaan omaisen kutsumispyyntö + lisää logiikka SMS-lähetykseen
-2. **`src/pages/ElderDetail.tsx`** — Näytä selkeä "Ei tunneanalyysiä saatavilla" kun hume-data on null, ja näytä `mood_source` (gpt/hume+gpt)
-3. **`src/pages/Dashboard.tsx`** — Lisää info kun Hume-dataa ei ole vielä
+// Only reach here if real conversation happened
+const analysis = await analyzeTranscript(transcript);
+// ... update report with analysis, never overwrite with "Ei vastattu"
+```
+
+**2. Lisää transcript fallback** — Tarkista myös `message.artifact?.transcript`:
+```typescript
+const transcript = message?.transcript || message?.artifact?.transcript || "";
+```
+
+**3. Lisää debug-lokit** — Lokita transcript-pituus ja missed call -päätös.
+
+### Muutettavat tiedostot
+- `supabase/functions/vapi-webhook/index.ts` — Uudelleenjärjestä logiikka niin ettei "Ei vastattu" voi ylikirjoittaa onnistunutta analyysiä
+- Deploy funktio uudelleen
 
