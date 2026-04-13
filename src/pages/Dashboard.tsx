@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Phone, AlertTriangle, Smile, Clock, PhoneCall, CheckCircle } from 'lucide-react';
+import { Users, Phone, AlertTriangle, Smile, Clock, PhoneCall, CheckCircle, Pill } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import EmergencyBanner from '@/components/EmergencyBanner';
