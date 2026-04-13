@@ -42,8 +42,6 @@ const ElderDetail = () => {
   const [moodData, setMoodData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [calling, setCalling] = useState(false);
-  const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
-  const [memoryForm, setMemoryForm] = useState({ memory_type: 'person', content: '' });
   const [medDialogOpen, setMedDialogOpen] = useState(false);
   const [medForm, setMedForm] = useState({ name: '', dosage: '', morning: false, noon: false, evening: false, instructions: '' });
   const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
