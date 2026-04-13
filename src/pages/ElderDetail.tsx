@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Volume2 } from 'lucide-react';
 import EmergencySettings from '@/components/EmergencySettings';
 import MemoriesSection from '@/components/MemoriesSection';
+import MedicationLog from '@/components/MedicationLog';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { EmotionChart } from '@/components/EmotionChart';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
