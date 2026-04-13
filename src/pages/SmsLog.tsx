@@ -24,6 +24,7 @@ const SmsLog = () => {
   const [logs, setLogs] = useState<SmsEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLogs = async () => {
