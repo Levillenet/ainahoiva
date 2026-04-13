@@ -21,10 +21,18 @@ interface ActiveRetry {
   elder_name: string;
 }
 
+interface EmotionAvg {
+  joy: number;
+  sadness: number;
+  anxiety: number;
+  tiredness: number;
+}
+
 const Dashboard = () => {
   const [stats, setStats] = useState<StatCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [retries, setRetries] = useState<ActiveRetry[]>([]);
+  const [emotions, setEmotions] = useState<EmotionAvg | null>(null);
 
   const fetchData = useCallback(async () => {
     const { count: elderCount } = await supabase.from('elders').select('*', { count: 'exact', head: true }).eq('is_active', true);
@@ -78,6 +86,28 @@ const Dashboard = () => {
         ...r,
         elder_name: r.elders?.full_name || '—',
       })));
+    }
+
+    // Fetch today's emotion averages
+    const { data: emotionReports } = await supabase
+      .from('call_reports')
+      .select('hume_joy, hume_sadness, hume_anxiety, hume_tiredness')
+      .gte('called_at', today)
+      .not('hume_raw', 'is', null);
+
+    if (emotionReports && emotionReports.length > 0) {
+      const avg = (key: string) => {
+        const vals = emotionReports.map((r: any) => r[key]).filter((v: any) => v != null);
+        return vals.length > 0 ? vals.reduce((s: number, v: number) => s + v, 0) / vals.length : 0;
+      };
+      setEmotions({
+        joy: avg('hume_joy'),
+        sadness: avg('hume_sadness'),
+        anxiety: avg('hume_anxiety'),
+        tiredness: avg('hume_tiredness'),
+      });
+    } else {
+      setEmotions(null);
     }
 
     setLoading(false);
@@ -170,6 +200,28 @@ const Dashboard = () => {
           ))
         )}
       </div>
+
+      {/* Emotion summary */}
+      {!loading && emotions && (
+        <div className="mt-6">
+          <h2 className="text-lg font-bold text-cream mb-4">Tänään tunneprofiilit</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { emoji: '😊', label: 'Ilo', value: emotions.joy },
+              { emoji: '😢', label: 'Suru', value: emotions.sadness },
+              { emoji: '😰', label: 'Ahdistus', value: emotions.anxiety },
+              { emoji: '😴', label: 'Väsymys', value: emotions.tiredness },
+            ].map(e => (
+              <div key={e.label} className="bg-card rounded-lg p-4 border border-border text-center">
+                <div className="text-2xl mb-1">{e.emoji}</div>
+                <div className="text-2xl font-bold text-gold">{Math.round(e.value * 100)}%</div>
+                <div className="text-sm text-muted-foreground">{e.label}</div>
+                <div className="text-xs text-muted-foreground">Kaikki vanhukset</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!loading && stats[0]?.value === 0 && (
         <div className="mt-12 text-center bg-card rounded-lg p-8 border border-border">

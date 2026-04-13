@@ -20,13 +20,22 @@ export type Database = {
           alert_reason: string | null
           alert_sent: boolean | null
           ate_today: boolean | null
+          audio_url: string | null
           call_type: string | null
           called_at: string | null
           duration_seconds: number | null
           elder_id: string
+          hume_anger: number | null
+          hume_anxiety: number | null
+          hume_confusion: number | null
+          hume_joy: number | null
+          hume_raw: Json | null
+          hume_sadness: number | null
+          hume_tiredness: number | null
           id: string
           medications_taken: boolean | null
           mood_score: number | null
+          mood_source: string | null
           transcript: string | null
         }
         Insert: {
@@ -34,13 +43,22 @@ export type Database = {
           alert_reason?: string | null
           alert_sent?: boolean | null
           ate_today?: boolean | null
+          audio_url?: string | null
           call_type?: string | null
           called_at?: string | null
           duration_seconds?: number | null
           elder_id: string
+          hume_anger?: number | null
+          hume_anxiety?: number | null
+          hume_confusion?: number | null
+          hume_joy?: number | null
+          hume_raw?: Json | null
+          hume_sadness?: number | null
+          hume_tiredness?: number | null
           id?: string
           medications_taken?: boolean | null
           mood_score?: number | null
+          mood_source?: string | null
           transcript?: string | null
         }
         Update: {
@@ -48,13 +66,22 @@ export type Database = {
           alert_reason?: string | null
           alert_sent?: boolean | null
           ate_today?: boolean | null
+          audio_url?: string | null
           call_type?: string | null
           called_at?: string | null
           duration_seconds?: number | null
           elder_id?: string
+          hume_anger?: number | null
+          hume_anxiety?: number | null
+          hume_confusion?: number | null
+          hume_joy?: number | null
+          hume_raw?: Json | null
+          hume_sadness?: number | null
+          hume_tiredness?: number | null
           id?: string
           medications_taken?: boolean | null
           mood_score?: number | null
+          mood_source?: string | null
           transcript?: string | null
         }
         Relationships: [
