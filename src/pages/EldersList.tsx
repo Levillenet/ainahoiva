@@ -29,13 +29,15 @@ const EldersList = () => {
 
   const fetchElders = async () => {
     const { data } = await supabase.from('elders').select('*').order('created_at', { ascending: false });
-    // Fetch latest report for each elder
     if (data) {
-      const withReports = await Promise.all(data.map(async (elder) => {
-        const { data: reports } = await supabase.from('call_reports').select('*').eq('elder_id', elder.id).order('called_at', { ascending: false }).limit(1);
-        return { ...elder, latestReport: reports?.[0] || null };
+      const withExtras = await Promise.all(data.map(async (elder) => {
+        const [reportsRes, memoriesRes] = await Promise.all([
+          supabase.from('call_reports').select('*').eq('elder_id', elder.id).order('called_at', { ascending: false }).limit(1),
+          supabase.from('elder_memory').select('id').eq('elder_id', elder.id),
+        ]);
+        return { ...elder, latestReport: reportsRes.data?.[0] || null, memoryCount: memoriesRes.data?.length || 0 };
       }));
-      setElders(withReports);
+      setElders(withExtras);
     }
     setLoading(false);
   };
@@ -142,6 +144,9 @@ const EldersList = () => {
                 <span className="flex items-center gap-1"><Pill className="w-4 h-4" /> {elder.latestReport?.medications_taken ? '✅' : '❌'}</span>
                 {elder.latestReport?.called_at && (
                   <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {new Date(elder.latestReport.called_at).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}</span>
+                )}
+                {elder.memoryCount > 0 && (
+                  <span className="flex items-center gap-1 text-gold">🧠 {elder.memoryCount} muistoa</span>
                 )}
               </div>
               <div className="flex gap-2">
