@@ -43,10 +43,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = (password: string): boolean => {
+  const signIn = async (password: string): Promise<boolean> => {
     if (password !== CORRECT_PASSWORD) return false;
     localStorage.setItem(AUTH_KEY, 'true');
     setIsAuthenticated(true);
+    // Ensure a Supabase session exists for RLS
+    const { data: { session: existing } } = await supabase.auth.getSession();
+    if (!existing) {
+      await supabase.auth.signInAnonymously();
+    }
     return true;
   };
 
