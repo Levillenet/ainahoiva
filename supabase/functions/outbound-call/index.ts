@@ -58,6 +58,31 @@ serve(async (req) => {
       .map((m: { name: string; dosage?: string }) => `- ${m.name} ${m.dosage || ""}`)
       .join("\n");
 
+    // Fetch elder memories
+    const { data: memories } = await supabase
+      .from("elder_memory")
+      .select("memory_type, content, updated_at")
+      .eq("elder_id", elder.id)
+      .order("updated_at", { ascending: false })
+      .limit(20);
+
+    const memoryText = memories?.length
+      ? memories.map((m: { memory_type: string; content: string }) => `[${m.memory_type}] ${m.content}`).join("\n")
+      : "Ei aiempia muistoja";
+
+    // Get last call summary
+    const { data: lastCall } = await supabase
+      .from("call_reports")
+      .select("ai_summary, called_at, mood_score")
+      .eq("elder_id", elder.id)
+      .order("called_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const lastCallText = lastCall
+      ? `Viimeisin puhelu: ${new Date(lastCall.called_at!).toLocaleDateString("fi-FI")}\nMieliala oli: ${lastCall.mood_score}/5\nYhteenveto: ${lastCall.ai_summary}`
+      : "Ensimmäinen puhelu";
+
     const vapiResponse = await fetch("https://api.vapi.ai/call/phone", {
       method: "POST",
       headers: {
@@ -76,6 +101,8 @@ serve(async (req) => {
             elder_name: elder.full_name,
             medications: medList || "Ei lääkkeitä kirjattu",
             call_type: "scheduled",
+            memories: memoryText,
+            last_call: lastCallText,
           },
         },
       }),
