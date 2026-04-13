@@ -152,6 +152,72 @@ const ElderDetail = () => {
     }
   };
 
+  const handleAddMed = async () => {
+    if (!id || !medForm.name.trim()) return;
+    const { error } = await supabase.from('medications').insert({
+      elder_id: id,
+      name: medForm.name.trim(),
+      dosage: medForm.dosage.trim() || null,
+      morning: medForm.morning,
+      noon: medForm.noon,
+      evening: medForm.evening,
+      instructions: medForm.instructions.trim() || null,
+    });
+    if (error) {
+      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Lääke lisätty!' });
+      setMedDialogOpen(false);
+      setMedForm({ name: '', dosage: '', morning: false, noon: false, evening: false, instructions: '' });
+      const { data } = await supabase.from('medications').select('*').eq('elder_id', id);
+      setMeds(data || []);
+    }
+  };
+
+  const handleDeleteMed = async (medId: string) => {
+    const { error } = await supabase.from('medications').delete().eq('id', medId);
+    if (error) {
+      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Lääke poistettu' });
+      const { data } = await supabase.from('medications').select('*').eq('elder_id', id);
+      setMeds(data || []);
+    }
+  };
+
+  const handleAddFamily = async () => {
+    if (!id || !familyForm.full_name.trim() || !familyForm.phone_number.trim()) return;
+    const { error } = await supabase.from('family_members').insert({
+      elder_id: id,
+      full_name: familyForm.full_name.trim(),
+      phone_number: familyForm.phone_number.trim(),
+      email: familyForm.email.trim() || null,
+      relationship: familyForm.relationship.trim() || null,
+      receives_alerts: familyForm.receives_alerts,
+      receives_daily_report: familyForm.receives_daily_report,
+    });
+    if (error) {
+      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Omainen lisätty!' });
+      setFamilyDialogOpen(false);
+      setFamilyForm({ full_name: '', phone_number: '', email: '', relationship: '', receives_alerts: true, receives_daily_report: true });
+      const { data } = await supabase.from('family_members').select('*').eq('elder_id', id);
+      setFamily(data || []);
+    }
+  };
+
+  const handleDeleteFamily = async (familyId: string) => {
+    const { error } = await supabase.from('family_members').delete().eq('id', familyId);
+    if (error) {
+      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Omainen poistettu' });
+      const { data } = await supabase.from('family_members').select('*').eq('elder_id', id);
+      setFamily(data || []);
+    }
+  };
+
   if (loading) return <div className="animate-pulse text-cream p-8">Ladataan...</div>;
   if (!elder) return <div className="text-cream p-8">Vanhusta ei löytynyt.</div>;
 
