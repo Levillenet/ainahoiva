@@ -29,11 +29,19 @@ interface EmotionAvg {
   tiredness: number;
 }
 
+interface MedSummary {
+  morning: { taken: number; total: number };
+  noon: { taken: number; total: number };
+  evening: { taken: number; total: number };
+  anyMissed: boolean;
+}
+
 const Dashboard = () => {
   const [stats, setStats] = useState<StatCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [retries, setRetries] = useState<ActiveRetry[]>([]);
   const [emotions, setEmotions] = useState<EmotionAvg | null>(null);
+  const [medSummary, setMedSummary] = useState<MedSummary | null>(null);
 
   const fetchData = useCallback(async () => {
     const { count: elderCount } = await supabase.from('elders').select('*', { count: 'exact', head: true }).eq('is_active', true);
