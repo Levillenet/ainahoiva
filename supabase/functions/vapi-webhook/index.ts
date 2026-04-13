@@ -217,6 +217,28 @@ serve(async (req) => {
       }
     }
 
+    // Emergency detection
+    try {
+      const emergency = await detectEmergency(transcript, elder.id);
+      if (emergency.isEmergency) {
+        console.log(`[vapi-webhook] EMERGENCY DETECTED for elder ${elder.id}: ${emergency.type} - ${emergency.reason}`);
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/handle-emergency`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            elder_id: elder.id,
+            alert_type: emergency.type,
+            alert_reason: emergency.reason,
+          }),
+        });
+      }
+    } catch (emergencyErr) {
+      console.error("[vapi-webhook] Emergency detection error:", emergencyErr);
+    }
+
     const audioUrl = resolveAudioUrl(body);
     console.log("[vapi-webhook] Resolved audio URL:", audioUrl ?? "none");
     if (audioUrl && insertedReport) {
@@ -497,6 +519,64 @@ async function sendSummary(elderId: string, elderName: string, analysis: Record<
       }),
     });
   }
+}
+
+async function detectEmergency(
+  transcript: string,
+  elderId: string
+): Promise<{ isEmergency: boolean; type: string; reason: string }> {
+  // Get elder-specific keywords
+  const { data: settings } = await supabase
+    .from("emergency_settings")
+    .select("*")
+    .eq("elder_id", elderId)
+    .single();
+
+  const customKeywords = settings?.custom_keywords
+    ?.split(",")
+    .map((k: string) => k.trim().toLowerCase())
+    .filter(Boolean) ?? [];
+
+  const fallKeywords = settings?.detect_fall !== false
+    ? ["kaatunut", "kaaduin", "kaatui", "putosin", "lattialla", "en pysty nousemaan"]
+    : [];
+
+  const painKeywords = settings?.detect_pain !== false
+    ? ["kova kipu", "sietämätön kipu", "hätä", "apua", "ambulanssi", "soita apua"]
+    : [];
+
+  const confusionKeywords = settings?.detect_confusion !== false
+    ? ["en tiedä missä olen", "eksyin", "hukassa"]
+    : [];
+
+  const allKeywords = [
+    ...fallKeywords,
+    ...painKeywords,
+    ...confusionKeywords,
+    ...customKeywords,
+  ];
+
+  const lowerTranscript = transcript.toLowerCase();
+
+  for (const keyword of allKeywords) {
+    if (lowerTranscript.includes(keyword)) {
+      const type = fallKeywords.includes(keyword)
+        ? "fall"
+        : painKeywords.includes(keyword)
+        ? "pain"
+        : confusionKeywords.includes(keyword)
+        ? "confusion"
+        : "general";
+
+      return {
+        isEmergency: true,
+        type,
+        reason: `Tunnistettu avainsana: "${keyword}"`,
+      };
+    }
+  }
+
+  return { isEmergency: false, type: "", reason: "" };
 }
 
 async function extractMemories(elderId: string, transcript: string, elderName: string) {
