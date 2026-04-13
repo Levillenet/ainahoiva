@@ -202,9 +202,9 @@ const Dashboard = () => {
       </div>
 
       {/* Emotion summary */}
-      {!loading && emotions && (
+      {!loading && emotions ? (
         <div className="mt-6">
-          <h2 className="text-lg font-bold text-cream mb-4">Tänään tunneprofiilit</h2>
+          <h2 className="text-lg font-bold text-cream mb-4">Tänään tunneprofiilit (Hume AI)</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
               { emoji: '😊', label: 'Ilo', value: emotions.joy },
@@ -220,6 +220,14 @@ const Dashboard = () => {
               </div>
             ))}
           </div>
+        </div>
+      ) : !loading && (
+        <div className="mt-6 bg-card rounded-lg p-6 border border-border">
+          <h2 className="text-lg font-bold text-cream mb-2">Tunneanalyysi</h2>
+          <p className="text-muted-foreground text-sm">
+            Tunneprofiilidata näkyy täällä kun ensimmäinen onnistunut puhelu on analysoitu Hume AI:lla. 
+            Puhelu tarvitsee äänitteen (vähintään ~10 sekuntia keskustelua).
+          </p>
         </div>
       )}
 
