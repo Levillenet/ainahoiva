@@ -1,36 +1,36 @@
 
 
-## Ongelma
+## Vapi Assistant webhook-URL:n päivitys
 
-Puhelut on tehty Vapin kautta, mutta raportit jäävät tilaan "Soitto käynnistetty — odottaa vastausta" koska:
+### Tavoite
+Päivitä Vapi-assistantin (`c19c2445-c22a-4c52-8831-3b882fc38d4b`) `serverUrl`-kenttä osoittamaan webhook-funktioosi.
 
-1. **Vapi webhook ei ole koskaan lauennut** — edge function lokeissa ei ole yhtään kutsua `vapi-webhook`-funktiolle. Tämä tarkoittaa, että Vapi ei tiedä mihin lähettää puhelun lopputuloksen.
-2. **Duplikaattiongelma** — `outbound-call` luo uuden `call_reports`-rivin, ja `vapi-webhook` luo *toisen* rivin sen sijaan että päivittäisi olemassaolevan.
+### Toteutus
 
-## Korjaussuunnitelma
+Luodaan väliaikainen edge function `update-vapi-assistant`, joka tekee PATCH-kutsun Vapi API:in:
 
-### 1. Vapi webhook URL täytyy asettaa Vapi-dashboardissa
-
-Vapin assistantin asetuksissa "Server URL" pitää olla:
+```typescript
+// supabase/functions/update-vapi-assistant/index.ts
+const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
+const res = await fetch(
+  "https://api.vapi.ai/assistant/c19c2445-c22a-4c52-8831-3b882fc38d4b",
+  {
+    method: "PATCH",
+    headers: {
+      "Authorization": `Bearer ${VAPI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      serverUrl: "https://bjsthjvpotfcxgqxtoiy.supabase.co/functions/v1/vapi-webhook"
+    }),
+  }
+);
 ```
-https://bjsthjvpotfcxgqxtoiy.supabase.co/functions/v1/vapi-webhook
-```
-**Tämä on sinun tehtäväsi** — mene Vapi-dashboardiin ja aseta tämä URL assistantin asetuksiin.
 
-### 2. Korjaa duplikaattiongelma koodissa
-
-**outbound-call**: Tallenna Vapi call ID (`result.id`) call_reports-riviin.
-
-**vapi-webhook**: Sen sijaan että luodaan uusi rivi, etsitään olemassa oleva rivi Vapi call ID:llä ja päivitetään se. Jos ei löydy, luodaan uusi (inbound-puhelut).
-
-### Tekniset muutokset
-
-**Tietokanta**: Lisää `vapi_call_id text` -sarake `call_reports`-tauluun + UPDATE RLS-policy.
-
-**outbound-call/index.ts**: Tallenna `result.id` vapi_call_id-sarakkeeseen insertin yhteydessä.
-
-**vapi-webhook/index.ts**: 
-- Hae Vapi call ID webhookin payloadista (`message.call.id`)
-- Yritä ensin `UPDATE` olemassa olevaa riviä `vapi_call_id`-kentällä
-- Jos ei löydy, tee `INSERT` (inbound-puheluille)
+### Vaiheet
+1. Luo `update-vapi-assistant` edge function
+2. Deploy se
+3. Kutsu sitä kerran curl-työkalulla
+4. Varmista vastaus (serverUrl päivittynyt)
+5. Poista funktio (ei enää tarvita)
 
