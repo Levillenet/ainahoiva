@@ -151,7 +151,7 @@ const EldersList = () => {
               </div>
               <div className="flex gap-2">
                 <Link to={`/dashboard/vanhukset/${elder.id}`}>
-                  <Button size="sm" variant="outline" className="border-sage text-sage hover:bg-sage/10">Näytä raportti</Button>
+                  <Button size="sm" variant="outline" className="border-sage text-sage hover:bg-sage/10">Avaa tiedot</Button>
                 </Link>
               </div>
             </div>
