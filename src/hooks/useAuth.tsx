@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   isAuthenticated: boolean;
   loading: boolean;
-  signIn: (password: string) => boolean;
+  signIn: (password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
 }
 
