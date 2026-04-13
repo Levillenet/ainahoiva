@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   isAuthenticated: boolean;
   loading: boolean;
-  signIn: (password: string) => Promise<boolean>;
+  signIn: (password: string) => boolean;
   signOut: () => Promise<void>;
 }
 
@@ -15,7 +15,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const CORRECT_PASSWORD = 'hoivaamaan2026';
 const AUTH_KEY = 'ainahoiva_auth';
-const SUPABASE_EMAIL = 'samiaavikko@gmail.com';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -24,6 +23,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Keep Supabase session alive for RLS
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -34,7 +34,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
-      setIsAuthenticated(stored === 'true' && !!session);
+      // Authenticated if password gate passed (Supabase session is bonus for RLS)
+      setIsAuthenticated(stored === 'true');
       setLoading(false);
     };
     init();
@@ -42,20 +43,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (password: string): Promise<boolean> => {
+  const signIn = (password: string): boolean => {
     if (password !== CORRECT_PASSWORD) return false;
-    
-    // Sign in to Supabase with existing account
-    const { error } = await supabase.auth.signInWithPassword({
-      email: SUPABASE_EMAIL,
-      password: CORRECT_PASSWORD,
-    });
-    
-    if (error) {
-      console.error('Supabase sign in error:', error);
-      // Still allow password gate even if Supabase auth fails
-    }
-    
     localStorage.setItem(AUTH_KEY, 'true');
     setIsAuthenticated(true);
     return true;
@@ -63,7 +52,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     localStorage.removeItem(AUTH_KEY);
-    await supabase.auth.signOut();
     setIsAuthenticated(false);
   };
 
