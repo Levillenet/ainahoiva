@@ -35,17 +35,31 @@ serve(async (req) => {
       });
     }
 
-    // Step 1: Submit audio to Hume Expression Measurement API
+    // Step 1: Download audio and send to Hume as file upload
+    console.log("[analyze-emotion] Downloading audio from:", audio_url);
+    const audioResponse = await fetch(audio_url);
+    if (!audioResponse.ok) {
+      console.error("[analyze-emotion] Failed to download audio:", audioResponse.status);
+      return new Response(JSON.stringify({ skipped: true, reason: "audio_download_failed" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const audioBlob = await audioResponse.blob();
+    console.log("[analyze-emotion] Audio downloaded, size:", audioBlob.size, "type:", audioBlob.type);
+
+    const formData = new FormData();
+    formData.append("json", JSON.stringify({
+      models: { prosody: { granularity: "utterance" } },
+    }));
+    formData.append("file", audioBlob, "recording.wav");
+
     const humeResponse = await fetch("https://api.hume.ai/v0/batch/jobs", {
       method: "POST",
       headers: {
         "X-Hume-Api-Key": HUME_API_KEY,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        models: { prosody: { granularity: "utterance" } },
-        urls: [audio_url],
-      }),
+      body: formData,
     });
 
     const job = await humeResponse.json();
