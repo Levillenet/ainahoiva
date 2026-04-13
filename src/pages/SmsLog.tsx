@@ -88,7 +88,11 @@ const SmsLog = () => {
                     {filtered.map((log) => {
                       const cfg = typeConfig[log.type || ''] || { icon: '📩', label: log.type || '—' };
                       return (
-                        <tr key={log.id} className="border-b border-border/50 hover:bg-muted/30">
+                        <tr
+                          key={log.id}
+                          className="border-b border-border/50 hover:bg-muted/30 cursor-pointer"
+                          onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                        >
                           <td className="p-3">
                             <span className="flex items-center gap-1 text-xs">
                               {cfg.icon} {cfg.label}
@@ -96,7 +100,13 @@ const SmsLog = () => {
                           </td>
                           <td className="p-3 text-cream">{log.elder_name}</td>
                           <td className="p-3 text-muted-foreground font-mono text-xs">{log.to_number}</td>
-                          <td className="p-3 text-cream max-w-xs truncate">{log.message}</td>
+                          <td className="p-3 text-cream max-w-xs">
+                            {expandedId === log.id ? (
+                              <div className="whitespace-pre-wrap">{log.message}</div>
+                            ) : (
+                              <div className="truncate">{log.message}</div>
+                            )}
+                          </td>
                           <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">
                             {log.sent_at
                               ? new Date(log.sent_at).toLocaleString('fi-FI', {
