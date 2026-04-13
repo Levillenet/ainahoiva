@@ -405,6 +405,7 @@ function fallbackAnalysis() {
     alert_reason: null,
     contact_family: false,
     contact_reason: null,
+    reminders: [],
   };
 }
 
