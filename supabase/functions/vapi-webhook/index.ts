@@ -203,7 +203,8 @@ serve(async (req) => {
     }
 
     // Trigger Hume emotion analysis if audio URL available
-    const audioUrl = message?.call?.recordingUrl ?? null;
+    const audioUrl = resolveAudioUrl(body);
+    console.log("[vapi-webhook] Resolved audio URL:", audioUrl ?? "none");
     if (audioUrl && insertedReport) {
       await supabase.from("call_reports").update({ audio_url: audioUrl }).eq("id", insertedReport.id);
       fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-emotion`, {
@@ -218,6 +219,11 @@ serve(async (req) => {
           elder_id: elder.id,
         }),
       });
+    } else {
+      console.log(
+        "[vapi-webhook] Skipping Hume analysis, recording URL missing. Available recording fields:",
+        JSON.stringify(getRecordingDebugInfo(body))
+      );
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -291,6 +297,73 @@ Palauta:
     console.error("AI analysis error:", err);
     return fallbackAnalysis();
   }
+}
+
+function resolveAudioUrl(payload: any): string | null {
+  const candidates = collectAudioUrlCandidates(payload);
+  return candidates[0] ?? null;
+}
+
+function collectAudioUrlCandidates(value: any, seen = new WeakSet<object>()): string[] {
+  if (!value) return [];
+
+  if (typeof value === "string") {
+    return isAudioUrl(value) ? [value] : [];
+  }
+
+  if (typeof value !== "object") {
+    return [];
+  }
+
+  if (seen.has(value)) {
+    return [];
+  }
+  seen.add(value);
+
+  const directKeys = [
+    "recordingUrl",
+    "stereoRecordingUrl",
+    "monoRecordingUrl",
+    "combinedRecordingUrl",
+    "url",
+  ];
+
+  const found: string[] = [];
+
+  for (const key of directKeys) {
+    const candidate = value[key];
+    if (typeof candidate === "string" && isAudioUrl(candidate)) {
+      found.push(candidate);
+    }
+  }
+
+  for (const nested of Object.values(value)) {
+    found.push(...collectAudioUrlCandidates(nested, seen));
+  }
+
+  return [...new Set(found)];
+}
+
+function isAudioUrl(value: string): boolean {
+  if (!value.startsWith("http://") && !value.startsWith("https://")) {
+    return false;
+  }
+
+  const normalized = value.toLowerCase();
+  return ["recording", ".mp3", ".wav", ".m4a", ".ogg", ".webm"].some((token) => normalized.includes(token));
+}
+
+function getRecordingDebugInfo(payload: any) {
+  return {
+    callRecordingUrl: payload?.message?.call?.recordingUrl ?? null,
+    artifactRecordingUrl: payload?.message?.artifact?.recordingUrl ?? null,
+    artifactMonoRecordingUrl: payload?.message?.artifact?.monoRecordingUrl ?? null,
+    artifactStereoRecordingUrl: payload?.message?.artifact?.stereoRecordingUrl ?? null,
+    artifactRecording: payload?.message?.artifact?.recording ?? null,
+    analysisRecordingUrl: payload?.message?.analysis?.recordingUrl ?? null,
+    topLevelRecordingUrl: payload?.recordingUrl ?? null,
+    detectedCandidates: collectAudioUrlCandidates(payload),
+  };
 }
 
 function fallbackAnalysis() {
