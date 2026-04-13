@@ -118,32 +118,6 @@ const ElderDetail = () => {
     }
   };
 
-  const handleAddMemory = async () => {
-    if (!id || !memoryForm.content.trim()) return;
-    const { error } = await supabase.from('elder_memory').insert({
-      elder_id: id,
-      memory_type: memoryForm.memory_type,
-      content: memoryForm.content.trim(),
-    });
-    if (error) {
-      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Muisto lisätty!' });
-      setMemoryDialogOpen(false);
-      setMemoryForm({ memory_type: 'person', content: '' });
-      fetchMemories();
-    }
-  };
-
-  const handleDeleteMemory = async (memoryId: string) => {
-    const { error } = await supabase.from('elder_memory').delete().eq('id', memoryId);
-    if (error) {
-      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Muisto poistettu' });
-      fetchMemories();
-    }
-  };
 
   const handleAddMed = async () => {
     if (!id || !medForm.name.trim()) return;
