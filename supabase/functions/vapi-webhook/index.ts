@@ -32,7 +32,8 @@ serve(async (req) => {
     }
 
     const vapiCallId = message?.call?.id;
-    const callerNumber = message?.call?.customer?.number;
+    const rawCallerNumber = message?.call?.customer?.number;
+    const callerNumber = rawCallerNumber?.replace(/[\s\-()]/g, "") || "";
     // Transcript fallback: check both locations
     const transcript = message?.transcript || message?.artifact?.transcript || "";
     const duration = message?.call?.endedAt
@@ -45,12 +46,9 @@ serve(async (req) => {
 
     console.log(`[vapi-webhook] Transcript length: ${transcript.length}, Duration: ${duration}, CallerNumber: ${callerNumber}`);
 
-    // Find elder by phone number
-    const { data: elder } = await supabase
-      .from("elders")
-      .select("id, full_name")
-      .eq("phone_number", callerNumber)
-      .single();
+    // Find elder by phone number (normalized comparison)
+    const { data: elders } = await supabase.rpc("find_elder_by_phone", { p_phone: callerNumber });
+    const elder = elders?.[0] ?? null;
 
     if (!elder) {
       console.log("Unknown caller:", callerNumber);
