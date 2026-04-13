@@ -108,8 +108,11 @@ serve(async (req) => {
       console.log("Inserted new report:", inserted?.id);
     }
 
-    // Detect missed call (duration < 15 seconds)
-    if (duration < 15 && insertedReport) {
+    // Detect missed call — use transcript length as primary signal since duration can be 0
+    const hasRealConversation = transcript.length > 50;
+    const isMissedCall = !hasRealConversation && duration < 30;
+    
+    if (isMissedCall && insertedReport) {
       await supabase.from("call_reports").update({
         ai_summary: "Ei vastattu puheluun",
         alert_sent: true,
@@ -125,7 +128,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({ elder_id: elder.id }),
       });
-    } else if (duration >= 15) {
+    } else if (hasRealConversation) {
       // Call was answered — resolve any pending retries
       await supabase
         .from("missed_call_retries")
@@ -156,7 +159,9 @@ serve(async (req) => {
     await sendSummary(elder.id, elder.full_name, analysis);
 
     // Extract and save memories from transcript
+    console.log("Starting memory extraction for elder:", elder.id, "transcript length:", transcript.length);
     await extractMemories(elder.id, transcript, elder.full_name);
+    console.log("Memory extraction completed for elder:", elder.id);
 
     // Trigger Hume emotion analysis if audio URL available
     const audioUrl = message?.call?.recordingUrl ?? null;
@@ -207,8 +212,8 @@ ${transcript}
 Palauta:
 {
   "mood_score": <numero 1-5 missä 1=erittäin huono, 5=erinomainen>,
-  "medications_taken": <true/false/null jos ei mainittu>,
-  "ate_today": <true/false/null jos ei mainittu>,
+  "medications_taken": <true jos vanhus kertoo ottaneensa lääkkeet, false VAIN jos vanhus sanoo ettei ole ottanut lääkkeitä, null jos lääkkeistä ei puhuttu tai vain kysyttiin/muistutettiin>,
+  "ate_today": <true jos vanhus kertoo syöneensä, false VAIN jos sanoo ettei ole syönyt, null jos ruoasta ei puhuttu>,
   "summary": "<2-3 lauseen yhteenveto suomeksi>",
   "needs_alert": <true jos mieliala 1-2 tai mainitsee kipua/hätää/kaatumista>,
   "alert_reason": "<syy hälytykselle suomeksi tai null>",
