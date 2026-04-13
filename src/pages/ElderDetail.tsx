@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Brain } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Brain, Volume2 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { EmotionChart } from '@/components/EmotionChart';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -186,7 +187,8 @@ const ElderDetail = () => {
               <XAxis dataKey="date" tick={{ fill: 'hsl(25, 10%, 44%)', fontSize: 12 }} />
               <YAxis domain={[1, 5]} tick={{ fill: 'hsl(25, 10%, 44%)', fontSize: 12 }} />
               <Tooltip contentStyle={{ backgroundColor: 'hsl(210, 24%, 24%)', border: 'none', color: '#F5F0E8' }} />
-              <Line type="monotone" dataKey="mood" stroke="hsl(43, 50%, 54%)" strokeWidth={2} dot={{ fill: 'hsl(43, 50%, 54%)' }} />
+              <Legend />
+              <Line type="monotone" dataKey="mood" name="Yhdistetty" stroke="hsl(43, 50%, 54%)" strokeWidth={2} dot={{ fill: 'hsl(43, 50%, 54%)' }} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -384,15 +386,59 @@ const ElderDetail = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-4 text-sm">
                       <span className="text-cream">{r.called_at ? new Date(r.called_at).toLocaleString('fi-FI') : '—'}</span>
-                      <span className="text-muted-foreground">{r.duration_seconds ? `${Math.floor(r.duration_seconds / 60)} min` : ''}</span>
+                      <span className="text-muted-foreground">{r.duration_seconds ? `${Math.floor(r.duration_seconds / 60)} min ${r.duration_seconds % 60} sek` : ''}</span>
                       <span>{r.mood_score ? `${moodEmoji(r.mood_score)} ${r.mood_score}/5` : ''}</span>
+                      {r.mood_source === 'hume+gpt' ? (
+                        <span className="text-xs bg-gold/20 text-gold px-2 py-0.5 rounded-full">Hume AI + GPT</span>
+                      ) : (
+                        <span className="text-xs bg-muted-foreground/20 text-muted-foreground px-2 py-0.5 rounded-full">GPT-analyysi</span>
+                      )}
                     </div>
                     {r.alert_sent && <span className="text-terracotta text-xs">⚠️ Hälytys</span>}
                   </div>
                   {r.ai_summary && <p className="text-cream text-sm mb-2">{r.ai_summary}</p>}
+
+                  {/* Emotion chart if Hume data exists */}
+                  {r.hume_raw && (
+                    <div className="mt-3 mb-3">
+                      <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
+                        <Volume2 className="w-4 h-4" /> Tunneanalyysi
+                      </p>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
+                        {[
+                          { label: 'Ilo', value: r.hume_joy, emoji: '😊' },
+                          { label: 'Suru', value: r.hume_sadness, emoji: '😢' },
+                          { label: 'Ahdistus', value: r.hume_anxiety, emoji: '😰' },
+                          { label: 'Väsymys', value: r.hume_tiredness, emoji: '😴' },
+                          { label: 'Turhautuminen', value: r.hume_anger, emoji: '😤' },
+                          { label: 'Hämmennys', value: r.hume_confusion, emoji: '😕' },
+                        ].map(e => (
+                          <div key={e.label} className="text-center bg-card rounded p-2">
+                            <div className="text-lg">{e.emoji}</div>
+                            <div className="text-gold text-sm font-bold">{Math.round((e.value ?? 0) * 100)}%</div>
+                            <div className="text-xs text-muted-foreground">{e.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <EmotionChart
+                        joy={r.hume_joy ?? 0}
+                        sadness={r.hume_sadness ?? 0}
+                        anxiety={r.hume_anxiety ?? 0}
+                        tiredness={r.hume_tiredness ?? 0}
+                        anger={r.hume_anger ?? 0}
+                        confusion={r.hume_confusion ?? 0}
+                      />
+                    </div>
+                  )}
+
+                  {r.audio_url && (
+                    <a href={r.audio_url} target="_blank" rel="noopener noreferrer" className="text-sage text-xs hover:underline inline-flex items-center gap-1 mr-3">
+                      <Volume2 className="w-3 h-3" /> Kuuntele tallenne
+                    </a>
+                  )}
                   {r.transcript && (
                     <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-sage text-xs">Lue koko litterointi</Button>
+                      <Button variant="ghost" size="sm" className="text-sage text-xs">📄 Lue koko litterointi</Button>
                     </CollapsibleTrigger>
                   )}
                   <CollapsibleContent>

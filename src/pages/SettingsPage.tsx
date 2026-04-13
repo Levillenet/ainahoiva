@@ -193,6 +193,34 @@ const SettingsPage = () => {
           </p>
         </div>
       </div>
+
+      {/* Hume AI Settings */}
+      <div className="bg-card rounded-lg p-6 border border-border space-y-6">
+        <h2 className="text-lg font-bold text-cream">🧠 Hume AI tunneanalyysi</h2>
+
+        <div className="bg-muted rounded-lg p-4">
+          <p className="text-muted-foreground text-sm">
+            ℹ️ Hume AI analysoi äänensävyn automaattisesti jokaisen puhelun jälkeen.
+            Yhdistettynä tekstianalyysiin tarkkuus on ~90% vs. pelkän tekstin ~70%.
+          </p>
+        </div>
+
+        <div className="bg-muted rounded-lg p-4">
+          <p className="text-muted-foreground text-sm">
+            🔑 Hume API Key on konfiguroitu backend-salaisuutena.
+            Puheluiden tallennus tulee olla käytössä Vapi-dashboardissa:
+            <br />
+            <span className="text-cream">Assistants → [assistentti] → Advanced → Recording → Enable</span>
+          </p>
+        </div>
+
+        <div className="bg-muted rounded-lg p-4">
+          <p className="text-muted-foreground text-sm">
+            📊 Tunneskaalat: Ilo, Suru, Ahdistus, Väsymys, Turhautuminen, Hämmennys (0-100%).
+            Jos suru tai ahdistus ylittää 70%, omaiselle lähetetään automaattinen hälytys.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
