@@ -191,7 +191,7 @@ const ElderDetail = () => {
   const latestReport = reports[0];
   const age = elder.date_of_birth ? Math.floor((Date.now() - new Date(elder.date_of_birth).getTime()) / 31557600000) : null;
 
-  const memoryTypes = ['all', 'person', 'health', 'event', 'preference', 'family'];
+  
 
   return (
     <div className="space-y-6">
