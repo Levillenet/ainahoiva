@@ -200,6 +200,16 @@ serve(async (req) => {
       console.error("[vapi-webhook] Memory extraction failed:", memErr);
     }
 
+    // Analyze and save medication status from transcript
+    if (insertedReport) {
+      try {
+        await analyzeMedications(transcript, elder.id, insertedReport.id);
+        console.log("[vapi-webhook] Medication analysis completed for elder:", elder.id);
+      } catch (medErr) {
+        console.error("[vapi-webhook] Medication analysis failed:", medErr);
+      }
+    }
+
     // Save reminders extracted from conversation
     if (analysis.reminders?.length) {
       console.log(`[vapi-webhook] Saving ${analysis.reminders.length} reminders for elder ${elder.id}`);
