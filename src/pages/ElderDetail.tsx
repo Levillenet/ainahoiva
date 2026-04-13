@@ -269,6 +269,9 @@ const ElderDetail = () => {
         onMemoriesChanged={fetchMemories}
       />
 
+      {/* Medication Log */}
+      <MedicationLog elderId={id!} medications={meds} />
+
       {/* Medications */}
       <div className="bg-card rounded-lg p-6 border border-border">
         <div className="flex items-center justify-between mb-4">

@@ -133,9 +133,42 @@ serve(async (req) => {
       });
     }
 
+    // === Build medication status for Vapi variables ===
+    const today = new Date().toISOString().split("T")[0];
+    const { data: medLogs } = await supabase
+      .from("medication_logs")
+      .select("medication_name, scheduled_time, taken")
+      .eq("elder_id", elder.id)
+      .eq("log_date", today);
+
+    const takenMeds = medLogs
+      ?.filter((m: any) => m.taken)
+      .map((m: any) => `${m.medication_name}_${m.scheduled_time}`) ?? [];
+
+    const fmt = (arr: string[]) => arr.length ? arr.join(", ") : "ei lääkkeitä";
+    const fmtTaken = (arr: string[]) => arr.length ? arr.join(", ") + " ✅" : "";
+
+    const buildMedVars = (time: string) => {
+      const allMeds = (elder.medications || [])
+        .filter((m: any) => m[time])
+        .map((m: any) => `${m.name} ${m.dosage || ""}`.trim());
+      const taken = (elder.medications || [])
+        .filter((m: any) => m[time] && takenMeds.includes(`${m.name} ${m.dosage || ""}`.trim() + `_${time}`))
+        .map((m: any) => `${m.name} ${m.dosage || ""}`.trim());
+      const remaining = allMeds.filter((med: string) => !taken.includes(med));
+      return { allMeds, taken, remaining };
+    };
+
+    const morning = buildMedVars("morning");
+    const noon = buildMedVars("noon");
+    const evening = buildMedVars("evening");
+
     const medList = (elder.medications || [])
       .map((m: { name: string; dosage?: string }) => `- ${m.name} ${m.dosage || ""}`)
       .join("\n");
+
+    // Check if any medication has dosette
+    const hasDosette = (elder.medications || []).some((m: any) => m.has_dosette);
 
     // Fetch elder memories
     const { data: memories } = await supabase
@@ -182,6 +215,22 @@ serve(async (req) => {
             call_type: "scheduled",
             memories: memoryText,
             last_call: lastCallText,
+            has_dosette: hasDosette ? "true" : "false",
+            // Morning
+            medications_morning_remaining: fmt(morning.remaining),
+            medications_morning_taken: fmtTaken(morning.taken),
+            medications_morning_all: fmt(morning.allMeds),
+            morning_all_taken: morning.remaining.length === 0 && morning.allMeds.length > 0 ? "true" : "false",
+            // Noon
+            medications_noon_remaining: fmt(noon.remaining),
+            medications_noon_taken: fmtTaken(noon.taken),
+            medications_noon_all: fmt(noon.allMeds),
+            noon_all_taken: noon.remaining.length === 0 && noon.allMeds.length > 0 ? "true" : "false",
+            // Evening
+            medications_evening_remaining: fmt(evening.remaining),
+            medications_evening_taken: fmtTaken(evening.taken),
+            medications_evening_all: fmt(evening.allMeds),
+            evening_all_taken: evening.remaining.length === 0 && evening.allMeds.length > 0 ? "true" : "false",
           },
         },
       }),
