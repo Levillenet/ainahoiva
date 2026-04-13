@@ -21,8 +21,55 @@ serve(async (req) => {
   }
 
   try {
-    const { elder_id } = await req.json();
+    const { elder_id, call_type, phone_number, elder_name, alert_reason, elder_phone, alert_id } = await req.json();
 
+    const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
+    const VAPI_ASSISTANT_ID = Deno.env.get("VAPI_ASSISTANT_ID");
+    const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID");
+
+    if (!VAPI_API_KEY || !VAPI_ASSISTANT_ID || !VAPI_PHONE_NUMBER_ID) {
+      return new Response(JSON.stringify({ error: "Vapi-asetukset puuttuvat" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === Emergency family call — call family member directly ===
+    if (call_type === "emergency_family" && phone_number) {
+      console.log(`[outbound-call] Emergency family call to ${phone_number}`);
+      const vapiResponse = await fetch("https://api.vapi.ai/call/phone", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${VAPI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          assistantId: VAPI_ASSISTANT_ID,
+          customer: { number: phone_number },
+          phoneNumberId: VAPI_PHONE_NUMBER_ID,
+          assistantOverrides: {
+            firstMessage:
+              `Hei! Täällä AinaHoiva. ` +
+              `${elder_name || "Vanhuksenne"} tarvitsee apuanne nyt. ` +
+              `Syy: ${alert_reason || "hätätilanne"}. ` +
+              `Soittakaa hänelle välittömästi numeroon ${elder_phone || ""}. Kiitos!`,
+            variableValues: {
+              elder_name: elder_name || "",
+              alert_reason: alert_reason || "",
+              elder_phone: elder_phone || "",
+              call_type: "emergency_family",
+            },
+          },
+        }),
+      });
+      const result = await vapiResponse.json();
+      return new Response(JSON.stringify({ success: vapiResponse.ok, call: result }), {
+        status: vapiResponse.ok ? 200 : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === Regular and emergency followup calls need elder_id ===
     if (!elder_id) {
       return new Response(JSON.stringify({ error: "elder_id vaaditaan" }), {
         status: 400,
