@@ -14,7 +14,262 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      call_reports: {
+        Row: {
+          ai_summary: string | null
+          alert_reason: string | null
+          alert_sent: boolean | null
+          ate_today: boolean | null
+          call_type: string | null
+          called_at: string | null
+          duration_seconds: number | null
+          elder_id: string
+          id: string
+          medications_taken: boolean | null
+          mood_score: number | null
+          transcript: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          alert_reason?: string | null
+          alert_sent?: boolean | null
+          ate_today?: boolean | null
+          call_type?: string | null
+          called_at?: string | null
+          duration_seconds?: number | null
+          elder_id: string
+          id?: string
+          medications_taken?: boolean | null
+          mood_score?: number | null
+          transcript?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          alert_reason?: string | null
+          alert_sent?: boolean | null
+          ate_today?: boolean | null
+          call_type?: string | null
+          called_at?: string | null
+          duration_seconds?: number | null
+          elder_id?: string
+          id?: string
+          medications_taken?: boolean | null
+          mood_score?: number | null
+          transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_reports_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elders: {
+        Row: {
+          address: string | null
+          call_time_evening: string | null
+          call_time_morning: string | null
+          created_at: string | null
+          created_by: string
+          date_of_birth: string | null
+          full_name: string
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          phone_number: string
+        }
+        Insert: {
+          address?: string | null
+          call_time_evening?: string | null
+          call_time_morning?: string | null
+          created_at?: string | null
+          created_by: string
+          date_of_birth?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          phone_number: string
+        }
+        Update: {
+          address?: string | null
+          call_time_evening?: string | null
+          call_time_morning?: string | null
+          created_at?: string | null
+          created_by?: string
+          date_of_birth?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          phone_number?: string
+        }
+        Relationships: []
+      }
+      family_members: {
+        Row: {
+          elder_id: string
+          email: string | null
+          full_name: string
+          id: string
+          phone_number: string
+          receives_alerts: boolean | null
+          receives_daily_report: boolean | null
+          relationship: string | null
+        }
+        Insert: {
+          elder_id: string
+          email?: string | null
+          full_name: string
+          id?: string
+          phone_number: string
+          receives_alerts?: boolean | null
+          receives_daily_report?: boolean | null
+          relationship?: string | null
+        }
+        Update: {
+          elder_id?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          phone_number?: string
+          receives_alerts?: boolean | null
+          receives_daily_report?: boolean | null
+          relationship?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_members_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medications: {
+        Row: {
+          created_at: string | null
+          dosage: string | null
+          elder_id: string
+          evening: boolean | null
+          id: string
+          instructions: string | null
+          morning: boolean | null
+          name: string
+          noon: boolean | null
+          times_per_day: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          dosage?: string | null
+          elder_id: string
+          evening?: boolean | null
+          id?: string
+          instructions?: string | null
+          morning?: boolean | null
+          name: string
+          noon?: boolean | null
+          times_per_day?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          dosage?: string | null
+          elder_id?: string
+          evening?: boolean | null
+          id?: string
+          instructions?: string | null
+          morning?: boolean | null
+          name?: string
+          noon?: boolean | null
+          times_per_day?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medications_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminders: {
+        Row: {
+          created_at: string | null
+          elder_id: string
+          id: string
+          is_sent: boolean | null
+          message: string
+          method: string | null
+          remind_at: string
+        }
+        Insert: {
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          is_sent?: boolean | null
+          message: string
+          method?: string | null
+          remind_at: string
+        }
+        Update: {
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          is_sent?: boolean | null
+          message?: string
+          method?: string | null
+          remind_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_log: {
+        Row: {
+          elder_id: string | null
+          id: string
+          message: string | null
+          sent_at: string | null
+          to_number: string | null
+          type: string | null
+        }
+        Insert: {
+          elder_id?: string | null
+          id?: string
+          message?: string | null
+          sent_at?: string | null
+          to_number?: string | null
+          type?: string | null
+        }
+        Update: {
+          elder_id?: string | null
+          id?: string
+          message?: string | null
+          sent_at?: string | null
+          to_number?: string | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_log_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
