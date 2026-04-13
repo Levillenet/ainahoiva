@@ -237,7 +237,32 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Emotion summary */}
+      {/* Medication summary */}
+      {!loading && medSummary && (medSummary.morning.total > 0 || medSummary.noon.total > 0 || medSummary.evening.total > 0) && (
+        <div className="mt-6">
+          <h2 className="text-lg font-bold text-cream mb-4">💊 Lääkkeet tänään</h2>
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: 'Aamu', data: medSummary.morning },
+              { label: 'Päivä', data: medSummary.noon },
+              { label: 'Ilta', data: medSummary.evening },
+            ].filter(s => s.data.total > 0).map(s => {
+              const allDone = s.data.taken >= s.data.total;
+              const hasMissed = s.data.taken < s.data.total && s.data.total > 0;
+              return (
+                <div key={s.label} className={`bg-card rounded-lg p-4 border text-center ${hasMissed ? 'border-terracotta' : 'border-border'}`}>
+                  <div className="text-sm text-muted-foreground mb-1">💊 {s.label}</div>
+                  <div className={`text-2xl font-bold ${allDone ? 'text-green-400' : hasMissed ? 'text-terracotta' : 'text-gold'}`}>
+                    {s.data.taken}/{s.data.total} {allDone ? '✅' : '⏳'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{allDone ? 'otettu' : 'odottaa'}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {!loading && emotions ? (
         <div className="mt-6">
           <h2 className="text-lg font-bold text-cream mb-4">Tänään tunneprofiilit (Hume AI)</h2>
