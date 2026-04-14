@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Phone, Loader2, CheckCircle, Clock, XCircle, Ban, Trash2 } from 'lucide-react';
+import { Phone, Loader2, CheckCircle, Clock, XCircle, Ban, Trash2, RotateCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const CallSchedule = () => {
@@ -9,6 +9,7 @@ const CallSchedule = () => {
   const [elders, setElders] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [reminders, setReminders] = useState<any[]>([]);
+  const [retries, setRetries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [callingId, setCallingId] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -18,14 +19,16 @@ const CallSchedule = () => {
   const dayNames = ['Sunnuntai', 'Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai'];
 
   const fetchData = useCallback(async () => {
-    const [eldersRes, reportsRes, remindersRes] = await Promise.all([
+    const [eldersRes, reportsRes, remindersRes, retriesRes] = await Promise.all([
       supabase.from('elders').select('*').eq('is_active', true).order('full_name'),
       supabase.from('call_reports').select('*').gte('called_at', todayStr),
       supabase.from('reminders').select('*, elders(full_name)').gte('remind_at', todayStr).lte('remind_at', todayStr + 'T23:59:59'),
+      supabase.from('missed_call_retries').select('*').gte('created_at', todayStr).eq('is_resolved', false),
     ]);
     setElders(eldersRes.data || []);
     setReports(reportsRes.data || []);
     setReminders(remindersRes.data || []);
+    setRetries(retriesRes.data || []);
     setLoading(false);
   }, [todayStr]);
 
