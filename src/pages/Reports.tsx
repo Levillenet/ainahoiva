@@ -92,7 +92,7 @@ const Reports = () => {
                 <tr key={r.id} className="border-b border-border hover:bg-muted/30">
                   <td className="p-3 text-cream">{(r.elders as any)?.full_name || '—'}</td>
                   <td className="p-3 text-cream">{r.called_at ? new Date(r.called_at).toLocaleString('fi-FI') : '—'}</td>
-                  <td className="p-3 text-cream">{r.duration_seconds ? `${Math.floor(r.duration_seconds / 60)} min` : '—'}</td>
+                  <td className="p-3 text-cream">{r.duration_seconds ? `${Math.floor(r.duration_seconds / 60)} min ${r.duration_seconds % 60} sek` : '—'}</td>
                   <td className="p-3">{moodEmoji(r.mood_score)}</td>
                   <td className="p-3">{r.medications_taken ? '✅' : '❌'}</td>
                   <td className="p-3 text-cream max-w-xs truncate">{r.ai_summary || '—'}</td>
