@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Volume2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Volume2, Pencil, Check, X } from 'lucide-react';
 import EmergencySettings from '@/components/EmergencySettings';
 import MemoriesSection from '@/components/MemoriesSection';
 import MedicationLog from '@/components/MedicationLog';
@@ -42,10 +43,33 @@ const ElderDetail = () => {
   const [moodData, setMoodData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [calling, setCalling] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ full_name: '', phone_number: '' });
   const [medDialogOpen, setMedDialogOpen] = useState(false);
   const [medForm, setMedForm] = useState({ name: '', dosage: '', morning: false, noon: false, evening: false, instructions: '' });
   const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
   const [familyForm, setFamilyForm] = useState({ full_name: '', phone_number: '', email: '', relationship: '', receives_alerts: true, receives_daily_report: true });
+
+  const startEditing = () => {
+    if (!elder) return;
+    setEditForm({ full_name: elder.full_name, phone_number: elder.phone_number });
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!elder || !editForm.full_name.trim() || !editForm.phone_number.trim()) return;
+    const { error } = await supabase.from('elders').update({
+      full_name: editForm.full_name.trim(),
+      phone_number: editForm.phone_number.trim(),
+    }).eq('id', elder.id);
+    if (error) {
+      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
+    } else {
+      setElder({ ...elder, full_name: editForm.full_name.trim(), phone_number: editForm.phone_number.trim() });
+      setEditing(false);
+      toast({ title: 'Tiedot päivitetty!' });
+    }
+  };
 
   const fetchReports = async () => {
     if (!id) return;
@@ -202,8 +226,26 @@ const ElderDetail = () => {
       {/* Header */}
       <div className="bg-card rounded-lg p-6 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-cream">{elder.full_name}</h1>
-          <p className="text-muted-foreground flex items-center gap-2"><Phone className="w-4 h-4" /> {elder.phone_number} {age && `· ${age} vuotta`}</p>
+          {editing ? (
+            <div className="space-y-2">
+              <Input value={editForm.full_name} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} className="bg-muted border-border text-cream font-bold text-xl" placeholder="Nimi" />
+              <Input value={editForm.phone_number} onChange={e => setEditForm(f => ({ ...f, phone_number: e.target.value }))} className="bg-muted border-border text-cream" placeholder="+358..." />
+              <div className="flex gap-2 mt-1">
+                <Button size="sm" onClick={saveEdit} className="bg-sage text-primary-foreground hover:bg-sage/90"><Check className="w-4 h-4 mr-1" /> Tallenna</Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="text-cream"><X className="w-4 h-4 mr-1" /> Peruuta</Button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-cream">{elder.full_name}</h1>
+                <Button size="icon" variant="ghost" onClick={startEditing} className="text-muted-foreground hover:text-cream h-7 w-7">
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-muted-foreground flex items-center gap-2"><Phone className="w-4 h-4" /> {elder.phone_number} {age && `· ${age} vuotta`}</p>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Button onClick={handleCallNow} disabled={calling} className="bg-sage text-primary-foreground hover:bg-sage/90">
