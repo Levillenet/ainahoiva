@@ -37,6 +37,8 @@ serve(async (req) => {
     console.log(`[vapi-assistant-request] Call direction: ${callDirection}, caller: ${callerNumber}`);
 
     // For outbound calls, don't override — outbound-call already sets everything
+    const assistantId = Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b";
+
     if (callDirection === "outboundPhoneCall") {
       console.log("[vapi-assistant-request] Outbound call — no override needed");
       return new Response(JSON.stringify({}), {
