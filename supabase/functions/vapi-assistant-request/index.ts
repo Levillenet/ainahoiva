@@ -61,8 +61,9 @@ async function fetchBaseAssistant() {
 }
 
 function buildAssistantResponse(baseAssistant: any, firstMessage: string, context: string) {
+  // Filter out system messages from base — our context replaces them
   const baseMessages = Array.isArray(baseAssistant?.model?.messages)
-    ? baseAssistant.model.messages
+    ? baseAssistant.model.messages.filter((m: any) => m.role !== "system")
     : [];
 
   const assistant: Record<string, unknown> = {
