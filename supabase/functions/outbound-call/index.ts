@@ -182,26 +182,13 @@ serve(async (req) => {
         assistantOverrides: {
           variableValues: {
             elder_name: elder.full_name,
-            medications: medList || "Ei lääkkeitä kirjattu",
+            medications_morning: medsMorning,
+            medications_noon: medsNoon,
+            medications_evening: medsEvening,
             call_type: "scheduled",
             memories: memoryText,
             last_call: lastCallText,
             has_dosette: hasDosette ? "true" : "false",
-            // Morning
-            medications_morning_remaining: fmt(morning.remaining),
-            medications_morning_taken: fmtTaken(morning.taken),
-            medications_morning_all: fmt(morning.allMeds),
-            morning_all_taken: morning.remaining.length === 0 && morning.allMeds.length > 0 ? "true" : "false",
-            // Noon
-            medications_noon_remaining: fmt(noon.remaining),
-            medications_noon_taken: fmtTaken(noon.taken),
-            medications_noon_all: fmt(noon.allMeds),
-            noon_all_taken: noon.remaining.length === 0 && noon.allMeds.length > 0 ? "true" : "false",
-            // Evening
-            medications_evening_remaining: fmt(evening.remaining),
-            medications_evening_taken: fmtTaken(evening.taken),
-            medications_evening_all: fmt(evening.allMeds),
-            evening_all_taken: evening.remaining.length === 0 && evening.allMeds.length > 0 ? "true" : "false",
           },
         },
       }),
