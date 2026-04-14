@@ -69,10 +69,18 @@ function buildAssistantResponse(baseAssistant: any, firstMessage: string, contex
   const assistant: Record<string, unknown> = {
     firstMessage,
     firstMessageMode: "assistant-speaks-first",
+    // Override English defaults with Finnish
+    endCallMessage: "Heippa hei, pidetään yhteyttä!",
+    voicemailMessage: "Hei, täällä Aina AinaHoivasta. Soitan myöhemmin uudelleen. Hyvää päivää!",
   };
 
   if (baseAssistant?.name) assistant.name = baseAssistant.name;
-  if (baseAssistant?.voice) assistant.voice = baseAssistant.voice;
+  if (baseAssistant?.voice) {
+    assistant.voice = {
+      ...baseAssistant.voice,
+      speed: 1.05, // Slightly slower for more natural speech
+    };
+  }
   if (baseAssistant?.transcriber) assistant.transcriber = baseAssistant.transcriber;
   if (baseAssistant?.server) assistant.server = baseAssistant.server;
   if (baseAssistant?.serverMessages) assistant.serverMessages = baseAssistant.serverMessages;
@@ -80,9 +88,7 @@ function buildAssistantResponse(baseAssistant: any, firstMessage: string, contex
   if (baseAssistant?.backgroundSound) assistant.backgroundSound = baseAssistant.backgroundSound;
   if (baseAssistant?.maxDurationSeconds) assistant.maxDurationSeconds = baseAssistant.maxDurationSeconds;
   if (baseAssistant?.voicemailDetection) assistant.voicemailDetection = baseAssistant.voicemailDetection;
-  if (baseAssistant?.endCallMessage) assistant.endCallMessage = baseAssistant.endCallMessage;
   if (baseAssistant?.endCallPhrases) assistant.endCallPhrases = baseAssistant.endCallPhrases;
-  if (baseAssistant?.voicemailMessage) assistant.voicemailMessage = baseAssistant.voicemailMessage;
   if (baseAssistant?.analysisPlan) assistant.analysisPlan = baseAssistant.analysisPlan;
   if (baseAssistant?.artifactPlan) assistant.artifactPlan = baseAssistant.artifactPlan;
   if (baseAssistant?.metadata) assistant.metadata = baseAssistant.metadata;
@@ -141,10 +147,10 @@ serve(async (req) => {
     }
 
     const genericFirstMessage = "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?";
-    const baseAssistant = await fetchBaseAssistant();
 
     if (!callerNumber) {
       console.log("[vapi-assistant-request] No caller number — using generic assistant");
+      const baseAssistant = await fetchBaseAssistant();
       return jsonResponse(
         baseAssistant
           ? buildAssistantResponse(
@@ -162,6 +168,7 @@ serve(async (req) => {
 
     if (!elderId || !elderName) {
       console.log(`[vapi-assistant-request] Unknown caller: ${callerNumber}`);
+      const baseAssistant = await fetchBaseAssistant();
       return jsonResponse(
         baseAssistant
           ? buildAssistantResponse(
@@ -175,7 +182,9 @@ serve(async (req) => {
 
     console.log(`[vapi-assistant-request] Recognized: ${elderName} (${elderId})`);
 
-    const [medsResult, memoriesResult, lastCallResult] = await Promise.all([
+    // Fetch base assistant AND elder data in parallel for minimum latency
+    const [baseAssistant, medsResult, memoriesResult, lastCallResult] = await Promise.all([
+      fetchBaseAssistant(),
       supabase
         .from("medications")
         .select("name, dosage, morning, noon, evening, has_dosette")
