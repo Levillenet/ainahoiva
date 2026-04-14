@@ -37,6 +37,8 @@ serve(async (req) => {
     console.log(`[vapi-assistant-request] Call direction: ${callDirection}, caller: ${callerNumber}`);
 
     // For outbound calls, don't override — outbound-call already sets everything
+    const assistantId = Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b";
+
     if (callDirection === "outboundPhoneCall") {
       console.log("[vapi-assistant-request] Outbound call — no override needed");
       return new Response(JSON.stringify({}), {
@@ -49,7 +51,8 @@ serve(async (req) => {
     if (!callerNumber) {
       console.log("[vapi-assistant-request] No caller number — generic greeting");
       return new Response(JSON.stringify({
-        assistant: {
+        assistantId,
+        assistantOverrides: {
           firstMessage: "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?",
         },
       }), {
@@ -66,7 +69,8 @@ serve(async (req) => {
     if (!elderId) {
       console.log(`[vapi-assistant-request] Unknown caller: ${callerNumber}`);
       return new Response(JSON.stringify({
-        assistant: {
+        assistantId,
+        assistantOverrides: {
           firstMessage: "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?",
         },
       }), {
@@ -134,7 +138,8 @@ serve(async (req) => {
     console.log(`[vapi-assistant-request] Returning personalized config for ${elderName}`);
 
     return new Response(JSON.stringify({
-      assistant: {
+      assistantId,
+      assistantOverrides: {
         firstMessage,
         variableValues: {
           elder_name: elderName,
@@ -155,7 +160,8 @@ serve(async (req) => {
     console.error("[vapi-assistant-request] Error:", error);
     // On error, return generic greeting so the call still works
     return new Response(JSON.stringify({
-      assistant: {
+      assistantId: Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b",
+      assistantOverrides: {
         firstMessage: "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?",
       },
     }), {
