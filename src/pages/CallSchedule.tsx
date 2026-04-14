@@ -91,27 +91,32 @@ const CallSchedule = () => {
     const skippedReport = elderReports.find(r => r.call_type === `${timeType}_skipped`);
     if (skippedReport) return { status: 'skipped', report: skippedReport };
 
-    // Find reports matching this time type or general outbound/inbound
-    const relevantReport = elderReports.find(r =>
-      r.call_type?.includes(timeType) || r.call_type === 'inbound'
+    // Determine which reports belong to morning vs evening by call time
+    const morningCutoff = '12:00';
+    const relevantReports = elderReports.filter(r => {
+      if (!r.called_at) return false;
+      const callHour = new Date(r.called_at).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Helsinki' });
+      if (timeType === 'morning') return callHour < morningCutoff;
+      return callHour >= morningCutoff;
+    });
+
+    if (relevantReports.length === 0) return { status: 'pending', report: null };
+
+    // Check if any call was successfully answered
+    const answeredReport = relevantReports.find(r =>
+      (r.duration_seconds != null && r.duration_seconds >= 10) ||
+      (r.transcript && r.transcript.length > 50) ||
+      (r.ai_summary && !r.ai_summary.includes('Ei vastattu') && !r.ai_summary.includes('odottaa'))
     );
 
-    // If no type-specific match, check general outbound reports
-    const anyReport = relevantReport || elderReports.find(r =>
-      r.call_type === 'outbound_scheduled' || r.call_type === 'outbound'
-    );
+    if (answeredReport) return { status: 'called', report: answeredReport };
 
-    if (!anyReport) return { status: 'pending', report: null };
+    // Not answered — return the latest report
+    return { status: 'missed', report: relevantReports[0] };
+  };
 
-    // Check if call was answered: must have transcript or duration > 10s
-    const wasAnswered = (anyReport.duration_seconds != null && anyReport.duration_seconds >= 10) ||
-      (anyReport.transcript && anyReport.transcript.length > 50) ||
-      (anyReport.ai_summary && !anyReport.ai_summary.includes('Ei vastattu') && !anyReport.ai_summary.includes('odottaa'));
-
-    if (!wasAnswered) {
-      return { status: 'missed', report: anyReport };
-    }
-    return { status: 'called', report: anyReport };
+  const getRetryInfo = (elderId: string) => {
+    return retries.find(r => r.elder_id === elderId);
   };
 
   const StatusIcon = ({ status }: { status: string }) => {
@@ -123,13 +128,22 @@ const CallSchedule = () => {
     }
   };
 
-  const statusText = (status: string, report: any) => {
+  const statusText = (status: string, report: any, elderId?: string) => {
     switch (status) {
       case 'called':
         const time = report?.called_at ? new Date(report.called_at).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' }) : '';
         const dur = report?.duration_seconds ? `${Math.floor(report.duration_seconds / 60)} min` : '';
         return `soitettu ${time} ${dur}`.trim();
-      case 'missed': return 'ei vastattu';
+      case 'missed': {
+        const retry = elderId ? getRetryInfo(elderId) : null;
+        if (retry) {
+          const nextTime = retry.next_retry_at
+            ? new Date(retry.next_retry_at).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
+            : '—';
+          return `ei vastattu (yritys ${retry.attempt_number}/${retry.max_attempts}) — seuraava klo ${nextTime}`;
+        }
+        return 'ei vastattu';
+      }
       case 'skipped': return 'ohitettu';
       default: return 'odottaa...';
     }
