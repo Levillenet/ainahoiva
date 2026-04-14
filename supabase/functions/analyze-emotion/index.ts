@@ -11,157 +11,34 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+// === Käännökset ===
+const TRANSLATIONS: Record<string, string> = {
+  "Admiration": "Ihailu", "Adoration": "Palvonta", "Aesthetic Appreciation": "Esteettinen arvostus",
+  "Amusement": "Huvittuneisuus", "Anger": "Viha", "Anxiety": "Ahdistus", "Awe": "Hämmästys",
+  "Awkwardness": "Kiusaantuneisuus", "Boredom": "Tylsistyminen", "Calmness": "Rauhallisuus",
+  "Concentration": "Keskittyminen", "Confusion": "Hämmennys", "Contemplation": "Mietiskely",
+  "Contempt": "Halveksunta", "Contentment": "Tyytyväisyys", "Craving": "Himo", "Desire": "Halu",
+  "Determination": "Päättäväisyys", "Disappointment": "Pettymys", "Disgust": "Inho",
+  "Distress": "Ahdistuneisuus", "Doubt": "Epäily", "Ecstasy": "Hurmio", "Embarrassment": "Häpeä",
+  "Empathic Pain": "Empaattinen kipu", "Entrancement": "Lumoutuminen", "Envy": "Kateus",
+  "Excitement": "Innostus", "Fear": "Pelko", "Guilt": "Syyllisyys", "Horror": "Kauhu",
+  "Interest": "Kiinnostus", "Joy": "Ilo", "Love": "Rakkaus", "Nostalgia": "Nostalgia",
+  "Pain": "Kipu", "Pride": "Ylpeys", "Realization": "Oivallus", "Relief": "Helpotus",
+  "Romance": "Romantiikka", "Sadness": "Suru", "Satisfaction": "Tyytyväisyys", "Shame": "Häpeä",
+  "Surprise (negative)": "Yllätys (neg.)", "Surprise (positive)": "Yllätys (pos.)",
+  "Sympathy": "Myötätunto", "Tiredness": "Väsymys", "Triumph": "Voitonriemu",
+};
 
-  try {
-    const { call_report_id, audio_url, elder_id } = await req.json();
-
-    if (!audio_url) {
-      return new Response(JSON.stringify({ skipped: true }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const HUME_API_KEY = Deno.env.get("HUME_API_KEY");
-    if (!HUME_API_KEY) {
-      console.error("HUME_API_KEY not configured");
-      return new Response(JSON.stringify({ skipped: true, reason: "no_api_key" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Step 1: Download audio and send to Hume as file upload
-    console.log("[analyze-emotion] Downloading audio from:", audio_url);
-    const audioResponse = await fetch(audio_url);
-    if (!audioResponse.ok) {
-      console.error("[analyze-emotion] Failed to download audio:", audioResponse.status);
-      return new Response(JSON.stringify({ skipped: true, reason: "audio_download_failed" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const audioBlob = await audioResponse.blob();
-    console.log("[analyze-emotion] Audio downloaded, size:", audioBlob.size, "type:", audioBlob.type);
-
-    const formData = new FormData();
-    formData.append("json", JSON.stringify({
-      models: { prosody: { granularity: "utterance" } },
-    }));
-    formData.append("file", audioBlob, "recording.wav");
-
-    const humeResponse = await fetch("https://api.hume.ai/v0/batch/jobs", {
-      method: "POST",
-      headers: {
-        "X-Hume-Api-Key": HUME_API_KEY,
-      },
-      body: formData,
-    });
-
-    const job = await humeResponse.json();
-    const jobId = job.job_id;
-    if (!jobId) throw new Error("No job ID from Hume");
-
-    // Step 2: Poll for results (max 30 seconds)
-    let predictions = null;
-    for (let i = 0; i < 10; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      const statusResponse = await fetch(
-        `https://api.hume.ai/v0/batch/jobs/${jobId}/predictions`,
-        { headers: { "X-Hume-Api-Key": HUME_API_KEY } }
-      );
-      if (statusResponse.ok) {
-        predictions = await statusResponse.json();
-        break;
-      }
-    }
-
-    if (!predictions) throw new Error("Hume analysis timed out");
-
-    // Step 3: Extract emotion scores
-    const emotions = extractEmotions(predictions);
-
-    // Step 4: Calculate combined mood score
-    const { data: report } = await supabase
-      .from("call_reports")
-      .select("mood_score")
-      .eq("id", call_report_id)
-      .single();
-
-    const gptScore = report?.mood_score ?? 3;
-    const humeMoodScore = calculateHumeMoodScore(emotions);
-    const combinedScore = Math.round(gptScore * 0.4 + humeMoodScore * 0.6);
-
-    // Step 5: Update call report
-    await supabase.from("call_reports").update({
-      hume_joy: emotions.joy,
-      hume_sadness: emotions.sadness,
-      hume_anxiety: emotions.anxiety,
-      hume_tiredness: emotions.tiredness,
-      hume_anger: emotions.anger,
-      hume_confusion: emotions.confusion,
-      hume_raw: predictions,
-      mood_score: combinedScore,
-      mood_source: "hume+gpt",
-    }).eq("id", call_report_id);
-
-    // Step 6: Alert if sadness or anxiety very high
-    if (emotions.sadness > 0.7 || emotions.anxiety > 0.7) {
-      const reason = `Korkea tunnearvo: suru ${Math.round(emotions.sadness * 100)}%, ahdistus ${Math.round(emotions.anxiety * 100)}%`;
-      
-      // Send alert to family
-      const { data: family } = await supabase
-        .from("family_members")
-        .select("phone_number")
-        .eq("elder_id", elder_id)
-        .eq("receives_alerts", true);
-
-      const { data: elder } = await supabase
-        .from("elders")
-        .select("full_name")
-        .eq("id", elder_id)
-        .single();
-
-      if (family?.length && elder) {
-        for (const member of family) {
-          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            },
-            body: JSON.stringify({
-              elder_id,
-              to_number: member.phone_number,
-              message: `⚠️ AinaHoiva: ${elder.full_name} — ${reason}. Tarkistakaa vointi.`,
-              type: "alert",
-            }),
-          });
-        }
-      }
-
-      await supabase.from("call_reports").update({
-        alert_sent: true,
-        alert_reason: reason,
-      }).eq("id", call_report_id);
-    }
-
-    return new Response(
-      JSON.stringify({ success: true, emotions, combinedScore }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Hume analysis error:", error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-});
+function getCategory(name: string): string {
+  const positive = ["Joy", "Contentment", "Satisfaction", "Relief", "Calmness", "Pride", "Triumph",
+    "Love", "Excitement", "Amusement", "Admiration", "Adoration", "Sympathy", "Interest",
+    "Nostalgia", "Entrancement", "Determination", "Realization"];
+  const negative = ["Sadness", "Anxiety", "Fear", "Distress", "Pain", "Horror", "Guilt", "Shame",
+    "Contempt", "Disgust", "Disappointment", "Envy", "Doubt", "Anger", "Embarrassment", "Awkwardness"];
+  if (positive.includes(name)) return "positive";
+  if (negative.includes(name)) return "negative";
+  return "neutral";
+}
 
 function extractEmotions(predictions: any) {
   try {
@@ -178,25 +55,216 @@ function extractEmotions(predictions: any) {
       }
     }
 
-    const avg = (name: string) => counts[name] ? totals[name] / counts[name] : 0;
+    const avg: Record<string, number> = {};
+    for (const [name, total] of Object.entries(totals)) {
+      avg[name] = total / counts[name];
+    }
+
+    const g = (name: string) => avg[name] ?? 0;
+
+    // === HOITOTYÖN TUNNERYHMÄT ===
+    const wellbeing = g("Joy") * 0.20 + g("Contentment") * 0.15 + g("Satisfaction") * 0.15 +
+      g("Relief") * 0.10 + g("Calmness") * 0.10 + g("Pride") * 0.08 + g("Triumph") * 0.07 +
+      g("Love") * 0.07 + g("Excitement") * 0.05 + g("Amusement") * 0.03;
+
+    const social = g("Admiration") * 0.20 + g("Adoration") * 0.15 + g("Sympathy") * 0.15 +
+      g("Empathic Pain") * 0.12 + g("Love") * 0.12 + g("Interest") * 0.10 +
+      g("Nostalgia") * 0.08 + g("Romance") * 0.05 + g("Entrancement") * 0.03;
+
+    const distress = g("Distress") * 0.25 + g("Fear") * 0.20 + g("Anxiety") * 0.15 +
+      g("Pain") * 0.15 + g("Horror") * 0.10 + g("Sadness") * 0.08 + g("Empathic Pain") * 0.07;
+
+    const lowMood = g("Sadness") * 0.25 + g("Disappointment") * 0.20 + g("Guilt") * 0.15 +
+      g("Shame") * 0.15 + g("Doubt") * 0.10 + g("Envy") * 0.08 + g("Contempt") * 0.07;
+
+    const cognition = g("Concentration") * 0.25 + g("Contemplation") * 0.20 +
+      g("Determination") * 0.20 + g("Interest") * 0.15 + g("Realization") * 0.12 +
+      g("Confusion") * 0.08;
+
+    const physical = g("Tiredness") * 0.40 + g("Pain") * 0.30 + g("Craving") * 0.15 +
+      g("Desire") * 0.15;
+
+    // TOP 6
+    const sorted = Object.entries(avg).sort(([, a], [, b]) => b - a).slice(0, 6);
 
     return {
-      joy: avg("Joy"),
-      sadness: avg("Sadness"),
-      anxiety: avg("Anxiety"),
-      tiredness: avg("Tiredness"),
-      anger: avg("Anger"),
-      confusion: avg("Confusion"),
+      wellbeing_score: wellbeing,
+      social_score: social,
+      distress_score: distress,
+      low_mood_score: lowMood,
+      cognition_score: cognition,
+      physical_score: physical,
+      top_emotions: sorted.map(([name, score]) => ({
+        name_en: name, name_fi: TRANSLATIONS[name] ?? name,
+        score: Math.round(score * 100), category: getCategory(name),
+      })),
+      joy: g("Joy"), sadness: g("Sadness"), anxiety: g("Anxiety"),
+      tiredness: g("Tiredness"), anger: g("Anger"), confusion: g("Confusion"),
+      fear: g("Fear"), distress_raw: g("Distress"), pain: g("Pain"),
+      contentment: g("Contentment"), determination: g("Determination"), calmness: g("Calmness"),
+      all_emotions: avg,
     };
   } catch {
-    return { joy: 0, sadness: 0, anxiety: 0, tiredness: 0, anger: 0, confusion: 0 };
+    return {
+      wellbeing_score: 0, social_score: 0, distress_score: 0,
+      low_mood_score: 0, cognition_score: 0, physical_score: 0,
+      top_emotions: [], all_emotions: {},
+      joy: 0, sadness: 0, anxiety: 0, tiredness: 0, anger: 0, confusion: 0,
+      fear: 0, distress_raw: 0, pain: 0, contentment: 0, determination: 0, calmness: 0,
+    };
   }
 }
 
-function calculateHumeMoodScore(emotions: Record<string, number>): number {
-  const positive = emotions.joy;
-  const negative = emotions.sadness * 0.4 + emotions.anxiety * 0.3 + emotions.tiredness * 0.2 + emotions.anger * 0.1;
+function calculateHumeMoodScore(emotions: any): number {
+  const positive = (emotions.wellbeing_score ?? 0) * 0.5 + (emotions.social_score ?? 0) * 0.2;
+  const negative = (emotions.distress_score ?? 0) * 0.5 + (emotions.low_mood_score ?? 0) * 0.3;
   const raw = positive - negative;
   const score = Math.round(((raw + 1) / 2) * 4 + 1);
   return Math.min(5, Math.max(1, score));
 }
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { call_report_id, audio_url, elder_id } = await req.json();
+
+    if (!audio_url) {
+      return new Response(JSON.stringify({ skipped: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const HUME_API_KEY = Deno.env.get("HUME_API_KEY");
+    if (!HUME_API_KEY) {
+      console.error("HUME_API_KEY not configured");
+      return new Response(JSON.stringify({ skipped: true, reason: "no_api_key" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Download audio
+    console.log("[analyze-emotion] Downloading audio from:", audio_url);
+    const audioResponse = await fetch(audio_url);
+    if (!audioResponse.ok) {
+      console.error("[analyze-emotion] Failed to download audio:", audioResponse.status);
+      return new Response(JSON.stringify({ skipped: true, reason: "audio_download_failed" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const audioBlob = await audioResponse.blob();
+
+    const formData = new FormData();
+    formData.append("json", JSON.stringify({ models: { prosody: { granularity: "utterance" } } }));
+    formData.append("file", audioBlob, "recording.wav");
+
+    const humeResponse = await fetch("https://api.hume.ai/v0/batch/jobs", {
+      method: "POST",
+      headers: { "X-Hume-Api-Key": HUME_API_KEY },
+      body: formData,
+    });
+
+    const job = await humeResponse.json();
+    const jobId = job.job_id;
+    if (!jobId) throw new Error("No job ID from Hume");
+
+    // Poll for results
+    let predictions = null;
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const statusResponse = await fetch(
+        `https://api.hume.ai/v0/batch/jobs/${jobId}/predictions`,
+        { headers: { "X-Hume-Api-Key": HUME_API_KEY } }
+      );
+      if (statusResponse.ok) {
+        predictions = await statusResponse.json();
+        break;
+      }
+    }
+
+    if (!predictions) throw new Error("Hume analysis timed out");
+
+    // Extract emotions with care categories
+    const emotions = extractEmotions(predictions);
+
+    // Combined mood score
+    const { data: report } = await supabase
+      .from("call_reports").select("mood_score").eq("id", call_report_id).single();
+
+    const gptScore = report?.mood_score ?? 3;
+    const humeMoodScore = calculateHumeMoodScore(emotions);
+    const combinedScore = Math.round(gptScore * 0.4 + humeMoodScore * 0.6);
+
+    // Save all scores
+    await supabase.from("call_reports").update({
+      hume_joy: emotions.joy,
+      hume_sadness: emotions.sadness,
+      hume_anxiety: emotions.anxiety,
+      hume_tiredness: emotions.tiredness,
+      hume_anger: emotions.anger,
+      hume_confusion: emotions.confusion,
+      hume_top_emotions: emotions.top_emotions,
+      hume_all_emotions: emotions.all_emotions,
+      hume_wellbeing_score: emotions.wellbeing_score,
+      hume_social_score: emotions.social_score,
+      hume_distress_score: emotions.distress_score,
+      hume_raw: predictions,
+      mood_score: combinedScore,
+      mood_source: "hume+gpt",
+    }).eq("id", call_report_id);
+
+    // Alert if distress high or low mood
+    const shouldAlert =
+      emotions.distress_score > 0.3 ||
+      emotions.fear > 0.2 ||
+      emotions.pain > 0.2 ||
+      emotions.distress_raw > 0.25 ||
+      emotions.low_mood_score > 0.4 ||
+      emotions.sadness > 0.3;
+
+    if (shouldAlert) {
+      const reason = `Hoitotyön tunnehälytys: hätä ${Math.round(emotions.distress_score * 100)}%, alakulo ${Math.round(emotions.low_mood_score * 100)}%, suru ${Math.round(emotions.sadness * 100)}%`;
+
+      const { data: family } = await supabase
+        .from("family_members").select("phone_number")
+        .eq("elder_id", elder_id).eq("receives_alerts", true);
+
+      const { data: elder } = await supabase
+        .from("elders").select("full_name").eq("id", elder_id).single();
+
+      if (family?.length && elder) {
+        for (const member of family) {
+          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({
+              elder_id, to_number: member.phone_number,
+              message: `⚠️ AinaHoiva: ${elder.full_name} — ${reason}. Tarkistakaa vointi.`,
+              type: "alert",
+            }),
+          });
+        }
+      }
+
+      await supabase.from("call_reports").update({
+        alert_sent: true, alert_reason: reason,
+      }).eq("id", call_report_id);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, emotions, combinedScore }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Hume analysis error:", error);
+    return new Response(
+      JSON.stringify({ error: (error as Error).message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
