@@ -14,6 +14,7 @@ const supabase = createClient(
 const ASSISTANT_ID = Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const DEFAULT_FIRST_MESSAGE = "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?";
 
 // Static assistant config — no Vapi API call needed at runtime
 const STATIC_ASSISTANT_CONFIG = {
@@ -73,7 +74,34 @@ async function forwardToWebhook(body: unknown) {
   });
 }
 
+function getGreetingPrefix() {
+  const hour = (new Date().getUTCHours() + 3) % 24;
+
+  if (hour >= 5 && hour < 11) return "Hyvää huomenta";
+  if (hour >= 11 && hour < 17) return "Hyvää päivää";
+  if (hour >= 17 && hour < 22) return "Hyvää iltaa";
+
+  return "Hei";
+}
+
+function buildOpeningMessage(elderName?: string, direction: "inbound" | "outbound" = "inbound") {
+  const greeting = getGreetingPrefix();
+  const firstName = elderName?.split(" ")[0]?.trim();
+
+  if (direction === "outbound") {
+    return firstName
+      ? `${greeting} ${firstName}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`
+      : `${greeting}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
+  }
+
+  return firstName
+    ? `${greeting} ${firstName}! Täällä Aina, kiva kun soititte! Miten Teillä menee?`
+    : DEFAULT_FIRST_MESSAGE;
+}
+
 function buildAssistantResponse(firstMessage: string, context: string) {
+  const safeFirstMessage = firstMessage.trim() || DEFAULT_FIRST_MESSAGE;
+
   return {
     assistant: {
       ...STATIC_ASSISTANT_CONFIG,
@@ -81,7 +109,7 @@ function buildAssistantResponse(firstMessage: string, context: string) {
         ...STATIC_ASSISTANT_CONFIG.server,
         url: `${SUPABASE_URL}/functions/v1/vapi-webhook`,
       },
-      firstMessage,
+      firstMessage: safeFirstMessage,
       firstMessageMode: "assistant-speaks-first",
       endCallMessage: "Heippa hei, pidetään yhteyttä!",
       voicemailMessage: "Hei, täällä Aina AinaHoivasta. Soitan myöhemmin uudelleen. Hyvää päivää!",
@@ -122,22 +150,17 @@ serve(async (req) => {
 
     const callDirection = body?.message?.call?.type;
     const callerNumber = body?.message?.call?.customer?.number;
+    const isOutboundCall = callDirection === "outboundPhoneCall";
+    const callLabel = isOutboundCall ? "lähtevä" : "sisääntuleva";
 
     console.log(`[vapi-assistant-request] Call direction: ${callDirection}, caller: ${callerNumber}`);
 
-    if (callDirection === "outboundPhoneCall") {
-      console.log("[vapi-assistant-request] Outbound call — returning saved assistant");
-      return jsonResponse({ assistantId: ASSISTANT_ID });
-    }
-
-    const genericFirstMessage = "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?";
-
     if (!callerNumber) {
-      console.log("[vapi-assistant-request] No caller number — using generic assistant");
+      console.log("[vapi-assistant-request] No caller number — using generic speaking assistant");
       return jsonResponse(
         buildAssistantResponse(
-          genericFirstMessage,
-          "Sisääntuleva puhelu. Tervehdi ystävällisesti suomeksi ja auta soittajaa.",
+          buildOpeningMessage(undefined, isOutboundCall ? "outbound" : "inbound"),
+          `${callLabel} puhelu. Tervehdi ystävällisesti suomeksi ja auta soittajaa.`,
         ),
       );
     }
@@ -150,8 +173,8 @@ serve(async (req) => {
       console.log(`[vapi-assistant-request] Unknown caller: ${callerNumber}`);
       return jsonResponse(
         buildAssistantResponse(
-          genericFirstMessage,
-          `Sisääntuleva puhelu numerosta ${callerNumber}. Soittajaa ei tunnistettu. Tervehdi ystävällisesti suomeksi ja kysy miten voit auttaa.`,
+          buildOpeningMessage(undefined, isOutboundCall ? "outbound" : "inbound"),
+          `${callLabel} puhelu numerosta ${callerNumber}. Soittajaa ei tunnistettu. Tervehdi ystävällisesti suomeksi ja kysy miten voit auttaa.`,
         ),
       );
     }
@@ -205,17 +228,10 @@ serve(async (req) => {
       ? `Viimeisin puhelu: ${new Date(lastCall.called_at!).toLocaleDateString("fi-FI")}\nMieliala oli: ${lastCall.mood_score}/5\nYhteenveto: ${lastCall.ai_summary}`
       : "Ensimmäinen puhelu";
 
-    const firstName = elderName.split(" ")[0];
-    const hour = (new Date().getUTCHours() + 3) % 24;
-    let greeting = "Hei";
-    if (hour >= 5 && hour < 11) greeting = "Hyvää huomenta";
-    else if (hour >= 11 && hour < 17) greeting = "Hyvää päivää";
-    else if (hour >= 17 && hour < 22) greeting = "Hyvää iltaa";
-
-    const firstMessage = `${greeting} ${firstName}! Täällä Aina, kiva kun soititte! Miten Teillä menee?`;
+    const firstMessage = buildOpeningMessage(elderName, isOutboundCall ? "outbound" : "inbound");
     const context = [
-      `Soittaja on ${elderName}.`,
-      `Kyseessä on sisääntuleva puhelu.`,
+      `${isOutboundCall ? "Puhelun vastaanottaja" : "Soittaja"} on ${elderName}.`,
+      `Kyseessä on ${callLabel} puhelu.`,
       `Aamulääkkeet: ${medsMorning}.`,
       `Päivälääkkeet: ${medsNoon}.`,
       `Iltalääkkeet: ${medsEvening}.`,
@@ -230,6 +246,11 @@ serve(async (req) => {
     return jsonResponse(buildAssistantResponse(firstMessage, context));
   } catch (error) {
     console.error("[vapi-assistant-request] Error:", error);
-    return jsonResponse({ assistantId: ASSISTANT_ID });
+    return jsonResponse(
+      buildAssistantResponse(
+        DEFAULT_FIRST_MESSAGE,
+        "Puhelun alussa tapahtui tekninen virhe. Tervehdi ystävällisesti suomeksi ja jatka keskustelua normaalisti.",
+      ),
+    );
   }
 });
