@@ -25,13 +25,18 @@ export type Database = {
           called_at: string | null
           duration_seconds: number | null
           elder_id: string
+          hume_all_emotions: Json | null
           hume_anger: number | null
           hume_anxiety: number | null
           hume_confusion: number | null
+          hume_distress_score: number | null
           hume_joy: number | null
           hume_raw: Json | null
           hume_sadness: number | null
+          hume_social_score: number | null
           hume_tiredness: number | null
+          hume_top_emotions: Json | null
+          hume_wellbeing_score: number | null
           id: string
           medications_taken: boolean | null
           mood_score: number | null
@@ -49,13 +54,18 @@ export type Database = {
           called_at?: string | null
           duration_seconds?: number | null
           elder_id: string
+          hume_all_emotions?: Json | null
           hume_anger?: number | null
           hume_anxiety?: number | null
           hume_confusion?: number | null
+          hume_distress_score?: number | null
           hume_joy?: number | null
           hume_raw?: Json | null
           hume_sadness?: number | null
+          hume_social_score?: number | null
           hume_tiredness?: number | null
+          hume_top_emotions?: Json | null
+          hume_wellbeing_score?: number | null
           id?: string
           medications_taken?: boolean | null
           mood_score?: number | null
@@ -73,13 +83,18 @@ export type Database = {
           called_at?: string | null
           duration_seconds?: number | null
           elder_id?: string
+          hume_all_emotions?: Json | null
           hume_anger?: number | null
           hume_anxiety?: number | null
           hume_confusion?: number | null
+          hume_distress_score?: number | null
           hume_joy?: number | null
           hume_raw?: Json | null
           hume_sadness?: number | null
+          hume_social_score?: number | null
           hume_tiredness?: number | null
+          hume_top_emotions?: Json | null
+          hume_wellbeing_score?: number | null
           id?: string
           medications_taken?: boolean | null
           mood_score?: number | null
