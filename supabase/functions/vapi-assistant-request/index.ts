@@ -141,10 +141,10 @@ serve(async (req) => {
     }
 
     const genericFirstMessage = "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?";
-    const baseAssistant = await fetchBaseAssistant();
 
     if (!callerNumber) {
       console.log("[vapi-assistant-request] No caller number — using generic assistant");
+      const baseAssistant = await fetchBaseAssistant();
       return jsonResponse(
         baseAssistant
           ? buildAssistantResponse(
@@ -162,6 +162,7 @@ serve(async (req) => {
 
     if (!elderId || !elderName) {
       console.log(`[vapi-assistant-request] Unknown caller: ${callerNumber}`);
+      const baseAssistant = await fetchBaseAssistant();
       return jsonResponse(
         baseAssistant
           ? buildAssistantResponse(
@@ -175,7 +176,9 @@ serve(async (req) => {
 
     console.log(`[vapi-assistant-request] Recognized: ${elderName} (${elderId})`);
 
-    const [medsResult, memoriesResult, lastCallResult] = await Promise.all([
+    // Fetch base assistant AND elder data in parallel for minimum latency
+    const [baseAssistant, medsResult, memoriesResult, lastCallResult] = await Promise.all([
+      fetchBaseAssistant(),
       supabase
         .from("medications")
         .select("name, dosage, morning, noon, evening, has_dosette")
