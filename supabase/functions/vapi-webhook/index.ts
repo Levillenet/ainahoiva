@@ -36,13 +36,22 @@ serve(async (req) => {
     const callerNumber = rawCallerNumber?.replace(/[\s\-()]/g, "") || "";
     // Transcript fallback: check both locations
     const transcript = message?.transcript || message?.artifact?.transcript || "";
-    const duration = message?.call?.endedAt
-      ? Math.floor(
-          (new Date(message.call.endedAt).getTime() -
-            new Date(message.call.startedAt).getTime()) /
-            1000
-        )
-      : 0;
+    // Duration: try multiple Vapi payload locations
+    let duration = 0;
+    if (message?.durationSeconds) {
+      duration = Math.round(message.durationSeconds);
+    } else if (message?.call?.duration) {
+      duration = Math.round(message.call.duration);
+    } else if (message?.artifact?.duration) {
+      duration = Math.round(message.artifact.duration);
+    } else if (message?.call?.endedAt && message?.call?.startedAt) {
+      duration = Math.floor(
+        (new Date(message.call.endedAt).getTime() -
+          new Date(message.call.startedAt).getTime()) /
+          1000
+      );
+    }
+    console.log(`[vapi-webhook] Duration sources: durationSeconds=${message?.durationSeconds}, call.duration=${message?.call?.duration}, artifact.duration=${message?.artifact?.duration}, calculated=${duration}`);
 
     console.log(`[vapi-webhook] Transcript length: ${transcript.length}, Duration: ${duration}, CallerNumber: ${callerNumber}`);
 
