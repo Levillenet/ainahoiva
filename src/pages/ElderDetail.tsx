@@ -9,6 +9,7 @@ import MemoriesSection from '@/components/MemoriesSection';
 import MedicationLog from '@/components/MedicationLog';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { EmotionChart } from '@/components/EmotionChart';
+import CareScores from '@/components/CareScores';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -509,6 +510,18 @@ const ElderDetail = () => {
                         anger={r.hume_anger ?? 0}
                         confusion={r.hume_confusion ?? 0}
                       />
+                      {(r.hume_wellbeing_score != null || r.hume_social_score != null || r.hume_distress_score != null) && (
+                        <div className="mt-3">
+                          <CareScores
+                            wellbeing={r.hume_wellbeing_score ?? 0}
+                            social={r.hume_social_score ?? 0}
+                            cognition={0}
+                            physical={0}
+                            lowMood={0}
+                            distress={r.hume_distress_score ?? 0}
+                          />
+                        </div>
+                      )}
                     </div>
                   ) : r.duration_seconds && r.duration_seconds > 10 ? (
                     <p className="text-xs text-muted-foreground mt-2 italic">🔄 Tunneanalyysiä ei saatavilla tälle puhelulle</p>
