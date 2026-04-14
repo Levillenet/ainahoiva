@@ -47,6 +47,7 @@ serve(async (_req) => {
             body: JSON.stringify({
               elder_id: reminder.elder_id,
               call_type: "reminder",
+              reminder_message: reminder.message,
             }),
           }
         );

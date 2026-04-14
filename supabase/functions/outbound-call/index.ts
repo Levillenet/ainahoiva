@@ -21,7 +21,7 @@ serve(async (req) => {
   }
 
   try {
-    const { elder_id, call_type, phone_number, elder_name, alert_reason, elder_phone, alert_id } = await req.json();
+    const { elder_id, call_type, phone_number, elder_name, alert_reason, elder_phone, alert_id, reminder_message } = await req.json();
 
     const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
     const VAPI_ASSISTANT_ID = Deno.env.get("VAPI_ASSISTANT_ID");
@@ -124,6 +124,59 @@ serve(async (req) => {
           elder_id: elder.id,
           call_type: "emergency_followup",
           ai_summary: "Hätätilanteen seurantasoitto käynnistetty",
+          vapi_call_id: result.id,
+        });
+      }
+      return new Response(JSON.stringify({ success: vapiResponse.ok, call: result }), {
+        status: vapiResponse.ok ? 200 : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === Helper: time of day greeting ===
+    function getTimeOfDay(): string {
+      const hour = (new Date().getUTCHours() + 3) % 24;
+      if (hour >= 5 && hour < 11) return "huomenta";
+      if (hour >= 11 && hour < 17) return "päivää";
+      if (hour >= 17 && hour < 22) return "iltaa";
+      return "yötä";
+    }
+
+    // === Reminder call — simple message ===
+    if (call_type === "reminder") {
+      console.log(`[outbound-call] Reminder call to elder ${elder.id}`);
+      const vapiResponse = await fetch("https://api.vapi.ai/call/phone", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${VAPI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          assistantId: VAPI_ASSISTANT_ID,
+          customer: {
+            number: elder.phone_number,
+            name: elder.full_name,
+          },
+          phoneNumberId: VAPI_PHONE_NUMBER_ID,
+          assistantOverrides: {
+            firstMessage:
+              `Hyvää ${getTimeOfDay()}! Täällä Aina AinaHoivasta. ` +
+              `Soitan muistuttaakseni Teitä: ${reminder_message || "muistutus"}. ` +
+              `Onko asia hoidossa?`,
+            variableValues: {
+              elder_name: elder.full_name,
+              call_type: "reminder",
+              reminder_message: reminder_message || "",
+            },
+          },
+        }),
+      });
+      const result = await vapiResponse.json();
+      if (vapiResponse.ok) {
+        await supabase.from("call_reports").insert({
+          elder_id: elder.id,
+          call_type: "reminder",
+          ai_summary: `Muistutussoitto: ${reminder_message || ""}`,
           vapi_call_id: result.id,
         });
       }
