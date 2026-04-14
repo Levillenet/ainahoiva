@@ -12,9 +12,45 @@ const supabase = createClient(
 );
 
 const ASSISTANT_ID = Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b";
-const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Static assistant config — no Vapi API call needed at runtime
+const STATIC_ASSISTANT_CONFIG = {
+  name: "Puhelullle",
+  voice: {
+    provider: "azure",
+    voiceId: "fi-FI-HarriNeural",
+    speed: 1.05,
+  },
+  transcriber: {
+    provider: "azure",
+    language: "fi-FI",
+    fallbackPlan: { autoFallback: { enabled: true } },
+  },
+  model: {
+    provider: "openai",
+    model: "gpt-4o-mini",
+    temperature: 0.8,
+    maxTokens: 250,
+    toolIds: [
+      "a747e9b5-d8d4-43b0-8393-d6778f72e9d7",
+      "a63a6b70-287e-4be0-8f29-8d03c06623c4",
+      "7be51015-e0e9-4483-bd9d-f59a8346ef21",
+      "7fc7df52-5506-4031-8e88-0279f426e2ee",
+      "229c8a4b-0459-42c5-aea7-ab6a8d988cc8",
+    ],
+  },
+  server: {
+    url: ``,  // Will be set dynamically
+    timeoutSeconds: 20,
+  },
+  backgroundSound: "office",
+  analysisPlan: {
+    summaryPlan: { enabled: false },
+    successEvaluationPlan: { enabled: false },
+  },
+};
 
 async function forwardToWebhook(body: unknown) {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/vapi-webhook`, {
@@ -37,80 +73,28 @@ async function forwardToWebhook(body: unknown) {
   });
 }
 
-async function fetchBaseAssistant() {
-  if (!VAPI_API_KEY) return null;
-
-  try {
-    const response = await fetch(`https://api.vapi.ai/assistant/${ASSISTANT_ID}`, {
-      headers: {
-        Authorization: `Bearer ${VAPI_API_KEY}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[vapi-assistant-request] Failed to fetch base assistant:", response.status, errorText);
-      return null;
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("[vapi-assistant-request] Error fetching base assistant:", error);
-    return null;
-  }
-}
-
-function buildAssistantResponse(baseAssistant: any, firstMessage: string, context: string) {
-  // Filter out system messages from base — our context replaces them
-  const baseMessages = Array.isArray(baseAssistant?.model?.messages)
-    ? baseAssistant.model.messages.filter((m: any) => m.role !== "system")
-    : [];
-
-  const assistant: Record<string, unknown> = {
-    firstMessage,
-    firstMessageMode: "assistant-speaks-first",
-    // Override English defaults with Finnish
-    endCallMessage: "Heippa hei, pidetään yhteyttä!",
-    voicemailMessage: "Hei, täällä Aina AinaHoivasta. Soitan myöhemmin uudelleen. Hyvää päivää!",
-  };
-
-  if (baseAssistant?.name) assistant.name = baseAssistant.name;
-  if (baseAssistant?.voice) {
-    assistant.voice = {
-      ...baseAssistant.voice,
-      speed: 1.05, // Slightly slower for more natural speech
-    };
-  }
-  if (baseAssistant?.transcriber) assistant.transcriber = baseAssistant.transcriber;
-  if (baseAssistant?.server) assistant.server = baseAssistant.server;
-  if (baseAssistant?.serverMessages) assistant.serverMessages = baseAssistant.serverMessages;
-  if (baseAssistant?.clientMessages) assistant.clientMessages = baseAssistant.clientMessages;
-  if (baseAssistant?.backgroundSound) assistant.backgroundSound = baseAssistant.backgroundSound;
-  if (baseAssistant?.maxDurationSeconds) assistant.maxDurationSeconds = baseAssistant.maxDurationSeconds;
-  if (baseAssistant?.voicemailDetection) assistant.voicemailDetection = baseAssistant.voicemailDetection;
-  if (baseAssistant?.endCallPhrases) assistant.endCallPhrases = baseAssistant.endCallPhrases;
-  if (baseAssistant?.analysisPlan) assistant.analysisPlan = baseAssistant.analysisPlan;
-  if (baseAssistant?.artifactPlan) assistant.artifactPlan = baseAssistant.artifactPlan;
-  if (baseAssistant?.metadata) assistant.metadata = baseAssistant.metadata;
-  if (baseAssistant?.credentials) assistant.credentials = baseAssistant.credentials;
-  if (baseAssistant?.hooks) assistant.hooks = baseAssistant.hooks;
-  if (baseAssistant?.transportConfigurations) assistant.transportConfigurations = baseAssistant.transportConfigurations;
-
-  if (baseAssistant?.model) {
-    assistant.model = {
-      ...baseAssistant.model,
-      messages: [
-        {
-          role: "system",
-          content: context,
-        },
-        ...baseMessages,
-      ],
-    };
-  }
-
+function buildAssistantResponse(firstMessage: string, context: string) {
   return {
-    assistant,
+    assistant: {
+      ...STATIC_ASSISTANT_CONFIG,
+      server: {
+        ...STATIC_ASSISTANT_CONFIG.server,
+        url: `${SUPABASE_URL}/functions/v1/vapi-webhook`,
+      },
+      firstMessage,
+      firstMessageMode: "assistant-speaks-first",
+      endCallMessage: "Heippa hei, pidetään yhteyttä!",
+      voicemailMessage: "Hei, täällä Aina AinaHoivasta. Soitan myöhemmin uudelleen. Hyvää päivää!",
+      model: {
+        ...STATIC_ASSISTANT_CONFIG.model,
+        messages: [
+          {
+            role: "system",
+            content: context,
+          },
+        ],
+      },
+    },
   };
 }
 
@@ -150,15 +134,11 @@ serve(async (req) => {
 
     if (!callerNumber) {
       console.log("[vapi-assistant-request] No caller number — using generic assistant");
-      const baseAssistant = await fetchBaseAssistant();
       return jsonResponse(
-        baseAssistant
-          ? buildAssistantResponse(
-              baseAssistant,
-              genericFirstMessage,
-              "Sisääntuleva puhelu. Tervehdi ystävällisesti suomeksi ja auta soittajaa.",
-            )
-          : { assistantId: ASSISTANT_ID },
+        buildAssistantResponse(
+          genericFirstMessage,
+          "Sisääntuleva puhelu. Tervehdi ystävällisesti suomeksi ja auta soittajaa.",
+        ),
       );
     }
 
@@ -168,23 +148,18 @@ serve(async (req) => {
 
     if (!elderId || !elderName) {
       console.log(`[vapi-assistant-request] Unknown caller: ${callerNumber}`);
-      const baseAssistant = await fetchBaseAssistant();
       return jsonResponse(
-        baseAssistant
-          ? buildAssistantResponse(
-              baseAssistant,
-              genericFirstMessage,
-              `Sisääntuleva puhelu numerosta ${callerNumber}. Soittajaa ei tunnistettu. Tervehdi ystävällisesti suomeksi ja kysy miten voit auttaa.`,
-            )
-          : { assistantId: ASSISTANT_ID },
+        buildAssistantResponse(
+          genericFirstMessage,
+          `Sisääntuleva puhelu numerosta ${callerNumber}. Soittajaa ei tunnistettu. Tervehdi ystävällisesti suomeksi ja kysy miten voit auttaa.`,
+        ),
       );
     }
 
     console.log(`[vapi-assistant-request] Recognized: ${elderName} (${elderId})`);
 
-    // Fetch base assistant AND elder data in parallel for minimum latency
-    const [baseAssistant, medsResult, memoriesResult, lastCallResult] = await Promise.all([
-      fetchBaseAssistant(),
+    // Fetch elder data in parallel — no Vapi API call needed
+    const [medsResult, memoriesResult, lastCallResult] = await Promise.all([
       supabase
         .from("medications")
         .select("name, dosage, morning, noon, evening, has_dosette")
@@ -252,11 +227,7 @@ serve(async (req) => {
 
     console.log(`[vapi-assistant-request] Returning speaking assistant for ${elderName}`);
 
-    return jsonResponse(
-      baseAssistant
-        ? buildAssistantResponse(baseAssistant, firstMessage, context)
-        : { assistantId: ASSISTANT_ID },
-    );
+    return jsonResponse(buildAssistantResponse(firstMessage, context));
   } catch (error) {
     console.error("[vapi-assistant-request] Error:", error);
     return jsonResponse({ assistantId: ASSISTANT_ID });
