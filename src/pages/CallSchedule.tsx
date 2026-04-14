@@ -88,20 +88,27 @@ const CallSchedule = () => {
     const skippedReport = elderReports.find(r => r.call_type === `${timeType}_skipped`);
     if (skippedReport) return { status: 'skipped', report: skippedReport };
 
+    // Find reports matching this time type or general outbound/inbound
     const relevantReport = elderReports.find(r =>
       r.call_type?.includes(timeType) || r.call_type === 'inbound'
     );
 
-    if (!relevantReport) {
-      const anyReport = elderReports[0];
-      if (anyReport && timeType === 'morning') return { status: 'called', report: anyReport };
-      return { status: 'pending', report: null };
-    }
+    // If no type-specific match, check general outbound reports
+    const anyReport = relevantReport || elderReports.find(r =>
+      r.call_type === 'outbound_scheduled' || r.call_type === 'outbound'
+    );
 
-    if (relevantReport.duration_seconds !== null && relevantReport.duration_seconds < 10) {
-      return { status: 'missed', report: relevantReport };
+    if (!anyReport) return { status: 'pending', report: null };
+
+    // Check if call was answered: must have transcript or duration > 10s
+    const wasAnswered = (anyReport.duration_seconds != null && anyReport.duration_seconds >= 10) ||
+      (anyReport.transcript && anyReport.transcript.length > 50) ||
+      (anyReport.ai_summary && !anyReport.ai_summary.includes('Ei vastattu') && !anyReport.ai_summary.includes('odottaa'));
+
+    if (!wasAnswered) {
+      return { status: 'missed', report: anyReport };
     }
-    return { status: 'called', report: relevantReport };
+    return { status: 'called', report: anyReport };
   };
 
   const StatusIcon = ({ status }: { status: string }) => {
