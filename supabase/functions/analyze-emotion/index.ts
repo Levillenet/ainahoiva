@@ -188,6 +188,8 @@ serve(async (req) => {
 
     // Extract emotions with care categories
     const emotions = extractEmotions(predictions);
+    console.log('[analyze-emotion] Top emotions:', JSON.stringify(emotions.top_emotions));
+    console.log('[analyze-emotion] Wellbeing:', emotions.wellbeing_score, 'Distress:', emotions.distress_score);
 
     // Combined mood score
     const { data: report } = await supabase
