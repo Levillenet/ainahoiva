@@ -160,7 +160,8 @@ serve(async (req) => {
     console.error("[vapi-assistant-request] Error:", error);
     // On error, return generic greeting so the call still works
     return new Response(JSON.stringify({
-      assistant: {
+      assistantId: Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b",
+      assistantOverrides: {
         firstMessage: "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?",
       },
     }), {
