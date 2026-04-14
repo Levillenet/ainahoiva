@@ -165,12 +165,19 @@ const CallSchedule = () => {
 
   const renderElderRow = (elder: any, timeType: 'morning' | 'evening') => {
     const { status, report } = getCallStatus(elder.id, timeType);
+    const retry = status === 'missed' ? getRetryInfo(elder.id) : null;
     return (
       <div key={elder.id} className={`flex items-center justify-between p-3 rounded-lg ${status === 'missed' ? 'bg-terracotta/10 border border-terracotta/30' : status === 'skipped' ? 'bg-muted/50 opacity-60' : 'bg-muted'}`}>
         <div className="flex items-center gap-3">
           <StatusIcon status={status} />
           <span className="text-cream font-medium">{elder.full_name}</span>
-          <span className="text-muted-foreground text-sm">{statusText(status, report)}</span>
+          <span className="text-muted-foreground text-sm">{statusText(status, report, elder.id)}</span>
+          {retry && !retry.is_resolved && (
+            <span className="flex items-center gap-1 text-xs text-gold">
+              <RotateCw className="w-3 h-3" />
+              jonossa
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {status === 'pending' && (
