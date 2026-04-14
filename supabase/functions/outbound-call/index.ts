@@ -11,6 +11,22 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
+function getTimeOfDay(): string {
+  const hour = (new Date().getUTCHours() + 3) % 24;
+  if (hour >= 5 && hour < 11) return "huomenta";
+  if (hour >= 11 && hour < 17) return "päivää";
+  if (hour >= 17 && hour < 22) return "iltaa";
+  return "yötä";
+}
+
+function buildScheduledFirstMessage(fullName: string): string {
+  const firstName = fullName.split(" ")[0]?.trim();
+
+  return firstName
+    ? `Hyvää ${getTimeOfDay()} ${firstName}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`
+    : `Hyvää ${getTimeOfDay()}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -53,6 +69,7 @@ serve(async (req) => {
               `${elder_name || "Vanhuksenne"} tarvitsee apuanne nyt. ` +
               `Syy: ${alert_reason || "hätätilanne"}. ` +
               `Soittakaa hänelle välittömästi numeroon ${elder_phone || ""}. Kiitos!`,
+            firstMessageMode: "assistant-speaks-first",
             variableValues: {
               elder_name: elder_name || "",
               alert_reason: alert_reason || "",
@@ -111,6 +128,7 @@ serve(async (req) => {
               `Hei ${elder.full_name}! Täällä Aina. ` +
               `Soitan tarkistaakseni että kaikki on hyvin. ` +
               `Onko tilanne parantunut?`,
+            firstMessageMode: "assistant-speaks-first",
             variableValues: {
               elder_name: elder.full_name,
               call_type: "emergency_followup",
@@ -131,15 +149,6 @@ serve(async (req) => {
         status: vapiResponse.ok ? 200 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // === Helper: time of day greeting ===
-    function getTimeOfDay(): string {
-      const hour = (new Date().getUTCHours() + 3) % 24;
-      if (hour >= 5 && hour < 11) return "huomenta";
-      if (hour >= 11 && hour < 17) return "päivää";
-      if (hour >= 17 && hour < 22) return "iltaa";
-      return "yötä";
     }
 
     // === Reminder call — simple message ===
@@ -163,6 +172,7 @@ serve(async (req) => {
               `Hyvää ${getTimeOfDay()}! Täällä Aina AinaHoivasta. ` +
               `Soitan muistuttaakseni Teitä: ${reminder_message || "muistutus"}. ` +
               `Onko asia hoidossa?`,
+            firstMessageMode: "assistant-speaks-first",
             variableValues: {
               elder_name: elder.full_name,
               call_type: "reminder",
@@ -233,6 +243,8 @@ serve(async (req) => {
         },
         phoneNumberId: VAPI_PHONE_NUMBER_ID,
         assistantOverrides: {
+          firstMessage: buildScheduledFirstMessage(elder.full_name),
+          firstMessageMode: "assistant-speaks-first",
           variableValues: {
             elder_name: elder.full_name,
             medications_morning: medsMorning,
