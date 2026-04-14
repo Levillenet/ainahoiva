@@ -51,7 +51,8 @@ serve(async (req) => {
     if (!callerNumber) {
       console.log("[vapi-assistant-request] No caller number — generic greeting");
       return new Response(JSON.stringify({
-        assistant: {
+        assistantId,
+        assistantOverrides: {
           firstMessage: "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?",
         },
       }), {
@@ -68,7 +69,8 @@ serve(async (req) => {
     if (!elderId) {
       console.log(`[vapi-assistant-request] Unknown caller: ${callerNumber}`);
       return new Response(JSON.stringify({
-        assistant: {
+        assistantId,
+        assistantOverrides: {
           firstMessage: "Hei! Täällä Aina AinaHoivasta. Miten voin auttaa?",
         },
       }), {
@@ -136,7 +138,8 @@ serve(async (req) => {
     console.log(`[vapi-assistant-request] Returning personalized config for ${elderName}`);
 
     return new Response(JSON.stringify({
-      assistant: {
+      assistantId,
+      assistantOverrides: {
         firstMessage,
         variableValues: {
           elder_name: elderName,
