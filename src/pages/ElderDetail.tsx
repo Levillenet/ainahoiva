@@ -226,8 +226,26 @@ const ElderDetail = () => {
       {/* Header */}
       <div className="bg-card rounded-lg p-6 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-cream">{elder.full_name}</h1>
-          <p className="text-muted-foreground flex items-center gap-2"><Phone className="w-4 h-4" /> {elder.phone_number} {age && `· ${age} vuotta`}</p>
+          {editing ? (
+            <div className="space-y-2">
+              <Input value={editForm.full_name} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} className="bg-muted border-border text-cream font-bold text-xl" placeholder="Nimi" />
+              <Input value={editForm.phone_number} onChange={e => setEditForm(f => ({ ...f, phone_number: e.target.value }))} className="bg-muted border-border text-cream" placeholder="+358..." />
+              <div className="flex gap-2 mt-1">
+                <Button size="sm" onClick={saveEdit} className="bg-sage text-primary-foreground hover:bg-sage/90"><Check className="w-4 h-4 mr-1" /> Tallenna</Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="text-cream"><X className="w-4 h-4 mr-1" /> Peruuta</Button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-cream">{elder.full_name}</h1>
+                <Button size="icon" variant="ghost" onClick={startEditing} className="text-muted-foreground hover:text-cream h-7 w-7">
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-muted-foreground flex items-center gap-2"><Phone className="w-4 h-4" /> {elder.phone_number} {age && `· ${age} vuotta`}</p>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <Button onClick={handleCallNow} disabled={calling} className="bg-sage text-primary-foreground hover:bg-sage/90">
