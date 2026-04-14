@@ -677,6 +677,12 @@ Palauta tyhjä taulukko [] jos ei ole mitään muistettavaa.
         });
         if (error) console.error("[extractMemories] Insert error:", error);
       }
+    }
+
+    console.log(`[extractMemories] Saved ${memories.length} memories for elder ${elderId}`);
+  } catch (err) {
+    console.error("[extractMemories] Error:", err);
+  }
 }
 
 async function analyzeMedications(
@@ -831,10 +837,5 @@ Jos ei mainintaa → palauta null`;
     console.log(`[analyzeMedications] Saved medication logs for elder ${elderId}`);
   } catch (error) {
     console.error("[analyzeMedications] Error:", error);
-  }
-}
-    console.log(`[extractMemories] Saved ${memories.length} memories for elder ${elderId}`);
-  } catch (err) {
-    console.error("[extractMemories] Error:", err);
   }
 }
