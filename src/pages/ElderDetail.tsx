@@ -43,10 +43,33 @@ const ElderDetail = () => {
   const [moodData, setMoodData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [calling, setCalling] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ full_name: '', phone_number: '' });
   const [medDialogOpen, setMedDialogOpen] = useState(false);
   const [medForm, setMedForm] = useState({ name: '', dosage: '', morning: false, noon: false, evening: false, instructions: '' });
   const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
   const [familyForm, setFamilyForm] = useState({ full_name: '', phone_number: '', email: '', relationship: '', receives_alerts: true, receives_daily_report: true });
+
+  const startEditing = () => {
+    if (!elder) return;
+    setEditForm({ full_name: elder.full_name, phone_number: elder.phone_number });
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!elder || !editForm.full_name.trim() || !editForm.phone_number.trim()) return;
+    const { error } = await supabase.from('elders').update({
+      full_name: editForm.full_name.trim(),
+      phone_number: editForm.phone_number.trim(),
+    }).eq('id', elder.id);
+    if (error) {
+      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
+    } else {
+      setElder({ ...elder, full_name: editForm.full_name.trim(), phone_number: editForm.phone_number.trim() });
+      setEditing(false);
+      toast({ title: 'Tiedot päivitetty!' });
+    }
+  };
 
   const fetchReports = async () => {
     if (!id) return;
