@@ -486,42 +486,46 @@ const ElderDetail = () => {
                       <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
                         <Volume2 className="w-4 h-4" /> Tunneanalyysi (Hume AI)
                       </p>
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
-                        {[
-                          { label: 'Ilo', value: r.hume_joy, emoji: '😊' },
-                          { label: 'Suru', value: r.hume_sadness, emoji: '😢' },
-                          { label: 'Ahdistus', value: r.hume_anxiety, emoji: '😰' },
-                          { label: 'Väsymys', value: r.hume_tiredness, emoji: '😴' },
-                          { label: 'Turhautuminen', value: r.hume_anger, emoji: '😤' },
-                          { label: 'Hämmennys', value: r.hume_confusion, emoji: '😕' },
-                        ].map(e => (
-                          <div key={e.label} className="text-center bg-card rounded p-2">
-                            <div className="text-lg">{e.emoji}</div>
-                            <div className="text-gold text-sm font-bold">{Math.round((e.value ?? 0) * 100)}%</div>
-                            <div className="text-xs text-muted-foreground">{e.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <EmotionChart
-                        joy={r.hume_joy ?? 0}
-                        sadness={r.hume_sadness ?? 0}
-                        anxiety={r.hume_anxiety ?? 0}
-                        tiredness={r.hume_tiredness ?? 0}
-                        anger={r.hume_anger ?? 0}
-                        confusion={r.hume_confusion ?? 0}
-                      />
-                      {(r.hume_wellbeing_score != null || r.hume_social_score != null || r.hume_distress_score != null) && (
-                        <div className="mt-3">
-                          <CareScores
-                            wellbeing={r.hume_wellbeing_score ?? 0}
-                            social={r.hume_social_score ?? 0}
-                            cognition={0}
-                            physical={0}
-                            lowMood={0}
-                            distress={r.hume_distress_score ?? 0}
-                          />
-                        </div>
-                      )}
+                      {(() => {
+                        const topEmotions: any[] = Array.isArray(r.hume_top_emotions) && r.hume_top_emotions.length > 0
+                          ? r.hume_top_emotions
+                          : null;
+                        const emotionCards = topEmotions
+                          ? topEmotions.slice(0, 6)
+                          : [
+                              { name_fi: 'Ilo', score: Math.round((r.hume_joy ?? 0) * 100) },
+                              { name_fi: 'Suru', score: Math.round((r.hume_sadness ?? 0) * 100) },
+                              { name_fi: 'Ahdistus', score: Math.round((r.hume_anxiety ?? 0) * 100) },
+                              { name_fi: 'Väsymys', score: Math.round((r.hume_tiredness ?? 0) * 100) },
+                              { name_fi: 'Turhautuminen', score: Math.round((r.hume_anger ?? 0) * 100) },
+                              { name_fi: 'Hämmennys', score: Math.round((r.hume_confusion ?? 0) * 100) },
+                            ];
+                        return (
+                          <>
+                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
+                              {emotionCards.map((e: any, i: number) => (
+                                <div key={i} className="text-center bg-card rounded p-2">
+                                  <div className="text-gold text-sm font-bold">{e.score}%</div>
+                                  <div className="text-xs text-muted-foreground">{e.name_fi}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <EmotionChart topEmotions={topEmotions ?? undefined} joy={r.hume_joy ?? 0} sadness={r.hume_sadness ?? 0} anxiety={r.hume_anxiety ?? 0} tiredness={r.hume_tiredness ?? 0} anger={r.hume_anger ?? 0} confusion={r.hume_confusion ?? 0} />
+                            {(r.hume_wellbeing_score != null || r.hume_social_score != null || r.hume_distress_score != null) && (
+                              <div className="mt-3">
+                                <CareScores
+                                  wellbeing={r.hume_wellbeing_score ?? 0}
+                                  social={r.hume_social_score ?? 0}
+                                  cognition={0}
+                                  physical={0}
+                                  lowMood={0}
+                                  distress={r.hume_distress_score ?? 0}
+                                />
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   ) : r.duration_seconds && r.duration_seconds > 10 ? (
                     <p className="text-xs text-muted-foreground mt-2 italic">🔄 Tunneanalyysiä ei saatavilla tälle puhelulle</p>
