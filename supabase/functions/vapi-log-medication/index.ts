@@ -13,11 +13,10 @@ serve(async (req) => {
     const args = toolCall?.function?.arguments ?? body;
     const callerNumber = body?.message?.call?.customer?.number;
 
-    const { data: elder } = await supabase
-      .from("elders")
-      .select("id, full_name")
-      .eq("phone_number", callerNumber)
-      .single();
+    const { data: elderMatch } = await supabase.rpc("find_elder_by_phone", {
+      p_phone: callerNumber,
+    });
+    const elder = elderMatch?.[0] ?? null;
 
     if (!elder) {
       return new Response(
