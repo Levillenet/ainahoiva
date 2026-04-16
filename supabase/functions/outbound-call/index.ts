@@ -107,6 +107,15 @@ serve(async (req) => {
       });
     }
 
+    // Skip inactive elders (except emergency calls)
+    if (!elder.is_active && call_type !== "emergency_followup") {
+      console.log(`[outbound-call] Skipping call to inactive elder ${elder.full_name}`);
+      return new Response(JSON.stringify({ error: "Vanhus ei ole aktiivinen", skipped: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // === Emergency followup call — simplified prompt ===
     if (call_type === "emergency_followup") {
       console.log(`[outbound-call] Emergency followup call to elder ${elder.id}`);

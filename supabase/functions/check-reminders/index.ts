@@ -15,7 +15,7 @@ serve(async (_req) => {
     // Find unsent reminders that are due
     const { data: reminders } = await supabase
       .from("reminders")
-      .select("*, elders(full_name, phone_number)")
+      .select("*, elders(full_name, phone_number, is_active)")
       .eq("is_sent", false)
       .lte("remind_at", now.toISOString());
 
@@ -30,6 +30,13 @@ serve(async (_req) => {
 
     for (const reminder of reminders) {
       const elder = (reminder as any).elders;
+
+      // Skip inactive elders
+      if (!elder?.is_active) {
+        await supabase.from("reminders").update({ is_sent: true }).eq("id", reminder.id);
+        console.log(`Skipping reminder for inactive elder ${elder?.full_name || reminder.elder_id}`);
+        continue;
+      }
 
       if (reminder.method === "sms" || reminder.method === "both") {
         await sendReminderSms(reminder.elder_id, elder.phone_number, elder.full_name, reminder.message);
