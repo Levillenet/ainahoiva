@@ -1,79 +1,118 @@
 
 
-User wants to add all listed Yle concept-based categories. I should be honest: in my previous message I listed concept IDs from memory, and several are duplicates or guesses (Politiikka and Terveys both 18-35138 — clearly wrong; Kulttuuri 18-215 vs Tiede 18-212 look suspicious). Before bloating the function with 11 categories that may 404 or return wrong content, we should verify each feed actually works.
+The user wants a calendar/reminders feature where the family member can:
+1. Schedule items to remind the elder about
+2. Choose whether to make a separate call OR mention it in the morning/evening regular call (or both)
 
-Plan: verify feeds first (in implementation mode via curl), keep working ones, drop broken ones, then expand.
+Currently the `reminders` table has `method` ('sms', 'call', 'both'). We need to extend this concept: the reminder can be delivered via the regular morning/evening call instead of/in addition to a separate call.
 
-## Suunnitelma: Laajennetaan uutiskategoriat 11:een — varmistetaan ensin että fiidit toimivat
+Let me plan a clean approach.
 
-### Rehellinen huomio
+## Suunnitelma: Kalenterimuistutukset omaiselta — joustava toimitustapa
 
-Edellisessä viestissäni listasin concept-ID:t muistinvaraisesti. Osa on selvästi vääriä:
-- Politiikka ja Terveys molemmat `18-35138` → sama ID ei voi olla kahta asiaa
-- Kulttuuri `18-215` ja Tiede `18-212` → epäilyttävän lyhyitä, todennäköisesti vääriä
+### Nykytilanne
 
-Siksi **ennen kuin lisätään 11 kategoriaa, testataan jokainen RSS-URL** ettei Aina lupaa "kerron talousuutiset" ja saa tyhjän vastauksen tai väärän aiheen otsikoita.
+- `reminders`-taulu: `elder_id, message, remind_at, method (sms|call|both), is_sent`
+- `Reminders.tsx` -sivu: lisää muistutuksia listana
+- `check-reminders` edge function: lähettää SMS:n tai soittaa erillisen puhelun kun `remind_at` koittaa
+
+### Mitä puuttuu
+
+Omainen ei voi sanoa: *"Muistuta isää torstaina lääkärinajasta — riittää että Aina mainitsee sen aamupuhelussa, ei tarvi erillistä soittoa."*
+
+### Ratkaisu: laajennetaan `method`-vaihtoehdot
+
+Uudet toimitustavat:
+
+```text
+sms                  → erillinen tekstiviesti (nykyinen)
+call                 → erillinen puhelu (nykyinen)
+both                 → SMS + erillinen puhelu (nykyinen)
+morning_call         → mainitaan saman päivän aamupuhelussa (UUSI)
+evening_call         → mainitaan saman päivän iltapuhelussa (UUSI)
+both_calls           → mainitaan sekä aamu- että iltapuhelussa (UUSI)
+```
 
 ### Vaiheet
 
-**Vaihe 1 — Verifiointi (curl jokaiseen feediin)**
+**Vaihe 1 — Tietokantamigraatio**
 
-Käydään läpi kaikki 11 ehdotettua URL:ää:
+- `reminders.delivery_mode` (uusi sarake, text) korvaa `method`-käytön loogisesti
+  - Itse asiassa pidetään `method`-sarake (yhteensopivuus säilyy) ja annetaan sille uudet sallitut arvot
+  - Lisätään `reminders.scheduled_for_date` (date) — selkeä päivämäärä kun muistutus liittyy puheluun (ei kellonaikaan)
+  - `remind_at` säilyy SMS/erillispuhelua varten
+
+Itse asiassa yksinkertaisempi: pidetään `remind_at` ainoana aikakenttänä. Aamu/iltapuhelu poimii kaikki muistutukset joiden `remind_at` osuu kyseiselle päivälle JA `method` on `morning_call`/`evening_call`/`both_calls`.
+
+→ **Migraatio: ei skeemamuutoksia tarvita.** Vain `method`-arvojoukko laajenee. Päivitetään dokumentaatio koodin kommenttina.
+
+**Vaihe 2 — UI: `Reminders.tsx`**
+
+Päivitetään `method`-valikko:
 ```text
-https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=<id>
-```
-Tarkistetaan jokaisesta:
-- HTTP 200 OK
-- Sisältää `<item>`-elementtejä
-- Otsikot vastaavat kategoriaa (esim. talous-feedissä puhutaan taloudesta)
-
-Etsitään myös oikeat ID:t epäilyttäville (politiikka, terveys, kulttuuri, tiede) Ylen Areenan/uutissivuston kategorialinkeistä tai web-haulla.
-
-**Vaihe 2 — Lisätään vain toimivat kategoriat `vapi-get-news/index.ts`:ään**
-
-`YLE_FEEDS`-objektiin uudet avaimet (vain niille jotka läpäisivät testin). Säilytetään nykyiset (`headlines`, `kotimaa`, `ulkomaat`, `urheilu`).
-
-**Vaihe 3 — Päivitetään `normalizeCategory` puhekielisillä muunnoksilla**
-
-```text
-talous     ← "talousuutiset", "pörssi", "raha-asiat", "talouselämä"
-politiikka ← "politiikan uutiset", "eduskunta", "hallitus"
-kulttuuri  ← "kulttuuriuutiset", "taide", "musiikki"
-tiede      ← "tiedeuutiset", "tutkimus"
-luonto     ← "luontouutiset", "ympäristö", "ilmasto"
-terveys    ← "terveysuutiset", "sairaudet"
-liikenne   ← "liikenneuutiset", "ruuhkat", "tiet"
-media      ← "mediauutiset"
-saa        ← "sää", "säätiedot", "sääennuste"
+📱 SMS-viesti
+📞 Erillinen puhelu
+📱+📞 Molemmat (SMS + erillinen puhelu)
+🌅 Mainitaan aamupuhelussa
+🌙 Mainitaan iltapuhelussa
+🌅+🌙 Mainitaan sekä aamu- että iltapuhelussa
 ```
 
-**Vaihe 4 — Päivitetään `vapi-assistant-request/index.ts` system prompt**
+Lisäksi:
+- Kun käyttäjä valitsee aamu-/iltapuhelun, **kellonaika-kenttä piilotetaan** (ei merkitystä) ja vain päivämäärä jää
+- Kalenterinäkymä (kuukausinäkymä) jossa muistutukset näkyvät päiväkohtaisesti — Shadcn `Calendar` + sivussa valitun päivän muistutukset
+- Säilytetään myös taulukkonäkymä alle (toggleable: "Kalenteri" / "Lista")
 
-Aina ei voi luetella 11 kategoriaa puhelussa (liian pitkä). Sen sijaan:
-- Aina kysyy avoimesti: *"Mitä uutisia haluaisitte kuulla? Voin lukea esimerkiksi pääuutiset, kotimaan, ulkomaat, talouden, urheilun tai sään."*
-- Jos asiakas pyytää muuta (politiikka, kulttuuri, tiede, luonto, terveys, liikenne, media), Aina osaa silti kutsua oikealla `category`-arvolla
-- Tool-skeemaan lisätään kaikki toimivat enum-arvot
+**Vaihe 3 — Backend: `check-reminders`**
 
-**Vaihe 5 — Säätiedot (erikoistapaus)**
+Muokataan niin että käsittelee VAIN `sms`, `call`, `both` (erilliset toimitukset). Aamu-/iltapuhelumuistutukset ohitetaan tässä cron-jobissa.
 
-Sää-RSS palauttaa todennäköisesti yleistä sääuutista, ei lähikunnan ennustetta. Jos halutaan oikea ennuste asiakkaan kotipaikkakunnalle, tarvitaan erillinen FMI:n avoin rajapinta (Open Data WFS) — paljon isompi työ. Tässä vaiheessa: vain Yle Sää -RSS otsikot. Lisätään **TODO-kommentti** koodiin tarkemmasta ennusteesta myöhemmin.
+**Vaihe 4 — Backend: `vapi-assistant-request`**
 
-**Vaihe 6 — Deployataan `vapi-get-news` ja `vapi-assistant-request`**
+Kun aamu- tai iltapuhelu alkaa:
+1. Funktio jo tietää onko kyseessä `morning` vai `evening` -puhelu (call_type)
+2. Hakee `reminders`-taulusta kaikki rivit joissa:
+   - `elder_id` = nykyinen
+   - `is_sent` = false
+   - `remind_at::date` = tämä päivä
+   - `method` ∈ (`morning_call` jos aamu, `evening_call` jos ilta, tai `both_calls`)
+3. Lisää muistutukset system promptiin: *"Mainitse luonnollisesti puhelun aikana: [muistutusviesti]. Älä kuulosta robotilta."*
+4. Merkitsee muistutukset `is_sent = true` puhelun jälkeen (tai välittömästi haun yhteydessä)
+
+**Vaihe 5 — Vapi system prompt -muutos**
+
+Lisätään ohje: jos muistutuksia on, Aina kutoo ne keskusteluun luontevasti — ei luettele listana, vaan esim. *"Muistattehan, että Teillä on tänään lääkärin aika kello 14."*
+
+**Vaihe 6 — Tila-merkintä**
+
+Kun aamu-/iltapuhelu päättyy onnistuneesti, merkitään ne muistutukset `is_sent = true` jotka liitettiin promptiin. Tehdään tämä `vapi-assistant-request`-funktiossa heti kun ne haetaan (yksinkertaisin: optimistinen merkintä). Riskinä: jos puhelu ei mene läpi, muistutus jää sanomatta. → Vaihtoehto: merkitään vasta `vapi-webhook`:in `end-of-call-report`-tapahtumassa. Valitaan **jälkimmäinen** (turvallisempi).
 
 ### Tiedostot
 
 ```text
-MUOKATAAN:
-  supabase/functions/vapi-get-news/index.ts          — YLE_FEEDS + normalizeCategory laajennus
-  supabase/functions/vapi-assistant-request/index.ts — read_news-tool enum + prompt päivitys
+LUODAAN:
+  (ei uusia tiedostoja)
 
-VERIFIOIDAAN AJON AIKANA (curl):
-  11 Yle RSS-URL:ää — vain toimivat lisätään lopulliseen koodiin
+MUOKATAAN:
+  src/pages/Reminders.tsx                           — kalenterinäkymä + uudet method-valinnat
+  supabase/functions/vapi-assistant-request/index.ts — hae päivän muistutukset, lisää promptiin
+  supabase/functions/vapi-webhook/index.ts          — merkitse is_sent puhelun jälkeen
+  supabase/functions/check-reminders/index.ts       — ohita uudet method-arvot
 ```
 
-### Riskit ja hyväksyntä
+### Riskit
 
-- Jos useampi feedi ei toimi → kerron rehellisesti mitkä jätettiin pois
-- Lisäkustannus: nolla (Yle RSS on ilmainen)
-- Vapi tool latency ei kasva (yksi feedi per kutsu)
+- Aina saattaa unohtaa mainita muistutuksen → mitigointi: prompt-ohje korostaa että muistutus on TÄRKEÄ ja tulee mainita
+- Useita muistutuksia samalle päivälle → Aina yhdistää ne luontevasti (prompt ohjaa)
+- Jos puhelu epäonnistuu → muistutus jää tilaan `is_sent=false`, käsitellään seuraavassa puhelussa (tai siirtyy SMS-fallbackiin? — **ei tässä vaiheessa**, voidaan lisätä myöhemmin)
+
+### Hyväksyntä
+
+Vahvistatko että:
+1. Käytetään `method`-saraketta uusilla arvoilla (ei skeemamuutosta) ✓
+2. Lisätään kalenterinäkymä + säilytetään taulukko vaihtoehtona ✓
+3. Aina mainitsee muistutukset luontevasti aamu-/iltapuhelussa, ei listana ✓
+4. Muistutus merkitään hoidetuksi vasta puhelun loputtua (`vapi-webhook`) ✓
+
+Vai haluatko muuttaa jotain ennen toteutusta?
 
