@@ -46,7 +46,7 @@ Lopetussanoja ovat VAIN:
 Pelkkä "hei" tai "joo" EI ole lopetus!
 
 ${vars.direction === "sisääntuleva" ? `Soittaja on ${vars.elder_name}.` : `Soitat vanhukselle nimeltä ${vars.elder_name}.`}
-Nykyinen aika: ${vars.now}
+**Nykyinen aika Suomessa: ${vars.now}** — KÄYTÄ TÄTÄ aikaa kun puhut kellosta tai vuorokaudenajasta. ÄLÄ ARVAA aikaa, ÄLÄ käytä omaa "tämänhetkistä" aikaa. Jos vanhus kysyy paljonko kello on, kerro tarkka aika tästä muuttujasta.
 Soiton tyyppi: ${vars.call_type}
 
 Aamulääkkeet: ${vars.medications_morning}
