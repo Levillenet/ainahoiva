@@ -112,6 +112,63 @@ export type Database = {
           },
         ]
       }
+      cognitive_assessments: {
+        Row: {
+          assessed_at: string | null
+          call_report_id: string | null
+          created_at: string | null
+          elder_id: string
+          flags: string[] | null
+          fluency_score: number | null
+          id: string
+          memory_score: number | null
+          observations: string | null
+          orientation_score: number | null
+          overall_impression: string | null
+        }
+        Insert: {
+          assessed_at?: string | null
+          call_report_id?: string | null
+          created_at?: string | null
+          elder_id: string
+          flags?: string[] | null
+          fluency_score?: number | null
+          id?: string
+          memory_score?: number | null
+          observations?: string | null
+          orientation_score?: number | null
+          overall_impression?: string | null
+        }
+        Update: {
+          assessed_at?: string | null
+          call_report_id?: string | null
+          created_at?: string | null
+          elder_id?: string
+          flags?: string[] | null
+          fluency_score?: number | null
+          id?: string
+          memory_score?: number | null
+          observations?: string | null
+          orientation_score?: number | null
+          overall_impression?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cognitive_assessments_call_report_id_fkey"
+            columns: ["call_report_id"]
+            isOneToOne: false
+            referencedRelation: "call_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cognitive_assessments_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       elder_memory: {
         Row: {
           content: string
@@ -152,6 +209,7 @@ export type Database = {
           address: string | null
           call_time_evening: string | null
           call_time_morning: string | null
+          cognitive_tracking_enabled: boolean | null
           created_at: string | null
           created_by: string
           date_of_birth: string | null
@@ -166,6 +224,7 @@ export type Database = {
           address?: string | null
           call_time_evening?: string | null
           call_time_morning?: string | null
+          cognitive_tracking_enabled?: boolean | null
           created_at?: string | null
           created_by: string
           date_of_birth?: string | null
@@ -180,6 +239,7 @@ export type Database = {
           address?: string | null
           call_time_evening?: string | null
           call_time_morning?: string | null
+          cognitive_tracking_enabled?: boolean | null
           created_at?: string | null
           created_by?: string
           date_of_birth?: string | null

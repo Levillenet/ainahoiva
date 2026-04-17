@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Volume2, Pencil, Check, X } from 'lucide-react';
+import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Volume2, Pencil, Check, X, Brain, Heart } from 'lucide-react';
 import EmergencySettings from '@/components/EmergencySettings';
 import MemoriesSection from '@/components/MemoriesSection';
 import MedicationLog from '@/components/MedicationLog';
@@ -127,6 +127,21 @@ const ElderDetail = () => {
     if (!elder) return;
     await supabase.from('elders').update({ is_active: !elder.is_active }).eq('id', elder.id);
     setElder({ ...elder, is_active: !elder.is_active });
+  };
+
+  const toggleCognitive = async () => {
+    if (!elder) return;
+    const next = !elder.cognitive_tracking_enabled;
+    const { error } = await supabase.from('elders').update({ cognitive_tracking_enabled: next }).eq('id', elder.id);
+    if (error) {
+      toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
+    } else {
+      setElder({ ...elder, cognitive_tracking_enabled: next });
+      toast({
+        title: next ? 'Kognitiivinen seuranta käytössä' : 'Seuranta poistettu käytöstä',
+        description: next ? 'Aina seuraa hienovaraisesti puheluiden aikana.' : undefined,
+      });
+    }
   };
 
   const handleCallNow = async () => {
@@ -256,6 +271,35 @@ const ElderDetail = () => {
           </Button>
           <span className="text-sm text-muted-foreground">{elder.is_active ? 'Aktiivinen' : 'Ei aktiivinen'}</span>
           <Switch checked={elder.is_active} onCheckedChange={toggleActive} />
+        </div>
+      </div>
+
+      {/* Cognitive tracking */}
+      <div className="bg-card rounded-lg p-6 border border-border">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <h2 className="text-lg font-bold text-cream flex items-center gap-2">
+              <Brain className="w-5 h-5 text-gold" /> Kognitiivinen seuranta
+            </h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              Aina seuraa hienovaraisesti muistin ja orientaation muutoksia puheluiden aikana.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1.5">
+              <Heart className="w-3.5 h-3.5 mt-0.5 text-sage shrink-0" />
+              Seuranta on täysin huomaamatonta — vanhus ei tiedä olevansa seurattuna.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{elder.cognitive_tracking_enabled ? 'Käytössä' : 'Pois'}</span>
+            <Switch checked={!!elder.cognitive_tracking_enabled} onCheckedChange={toggleCognitive} />
+          </div>
+        </div>
+        <div className="mt-4">
+          <Link to={`/dashboard/vanhukset/${elder.id}/kognitio`}>
+            <Button variant="outline" size="sm" className="border-gold text-gold hover:bg-gold/10">
+              <Brain className="w-4 h-4 mr-2" /> Avaa kognitio-raportti
+            </Button>
+          </Link>
         </div>
       </div>
 

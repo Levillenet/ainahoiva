@@ -4,6 +4,7 @@ import { Users, Phone, AlertTriangle, Smile, Clock, PhoneCall, CheckCircle, Pill
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import EmergencyBanner from '@/components/EmergencyBanner';
+import CognitiveAlertBanner from '@/components/CognitiveAlertBanner';
 
 interface StatCard {
   label: string;
@@ -176,6 +177,9 @@ const Dashboard = () => {
 
       {/* Emergency alerts */}
       <EmergencyBanner />
+
+      {/* Cognitive concerns */}
+      <CognitiveAlertBanner />
 
       {/* Active missed call alerts */}
       {retries.length > 0 && (

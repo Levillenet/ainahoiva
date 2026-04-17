@@ -219,6 +219,22 @@ serve(async (req) => {
       }
     }
 
+    // Cognitive assessment extraction (subtle — only saves if anything notable or if tracking enabled)
+    if (insertedReport && transcript) {
+      try {
+        const { data: elderRow } = await supabase
+          .from("elders")
+          .select("cognitive_tracking_enabled")
+          .eq("id", elder.id)
+          .maybeSingle();
+        const cogEnabled = elderRow?.cognitive_tracking_enabled ?? false;
+        await extractCognitiveAssessment(transcript, elder.id, insertedReport.id, cogEnabled);
+        console.log("[vapi-webhook] Cognitive assessment completed for elder:", elder.id);
+      } catch (cogErr) {
+        console.error("[vapi-webhook] Cognitive assessment failed:", cogErr);
+      }
+    }
+
     // Save reminders extracted from conversation
     if (analysis.reminders?.length) {
       console.log(`[vapi-webhook] Saving ${analysis.reminders.length} reminders for elder ${elder.id}`);
@@ -881,5 +897,100 @@ Jos ei mainintaa → palauta null`;
     console.log(`[analyzeMedications] Saved medication logs for elder ${elderId}`);
   } catch (error) {
     console.error("[analyzeMedications] Error:", error);
+
+async function extractCognitiveAssessment(transcript: string, elderId: string, callReportId: string, cognitiveEnabled: boolean) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.error("[extractCognitiveAssessment] LOVABLE_API_KEY not configured");
+    return;
+  }
+
+  const MAX_CHARS = 20000;
+  const truncated = transcript.length > MAX_CHARS ? transcript.slice(0, MAX_CHARS) : transcript;
+
+  const prompt = cognitiveEnabled
+    ? `Analysoi tämä puhelun transkripti kognitiivisen seurannan näkökulmasta.
+
+Etsi merkkejä seuraavista:
+1. Orientaatio: Tiesiköhän vanhus päivän, kuukauden, vuodenajan?
+2. Muisti: Jos mainittiin kolme sanaa — muistettiinko ne?
+3. Sujuvuus: Löysivätkö sanat helposti vai etsittiinkö niitä?
+
+Palauta JSON:
+{
+  "orientation_score": 0-3,
+  "memory_score": 0-3,
+  "fluency_score": 0-3,
+  "overall_impression": "normaali|lievä huoli|selkeä huoli",
+  "observations": "lyhyt kuvaus havainnoista suomeksi",
+  "flags": ["lista huolista jos on, muuten tyhjä array"]
+}
+
+Transkripti:
+${truncated}`
+    : `Tarkista onko tässä puhelussa merkkejä selkeästä sekavuudesta tai muistiongelmista.
+Palauta JSON:
+{
+  "orientation_score": null,
+  "memory_score": null,
+  "fluency_score": null,
+  "overall_impression": "normaali|lievä huoli|selkeä huoli",
+  "observations": "mainitse vain jos jotain selkeästi poikkeavaa, muuten tyhjä string",
+  "flags": []
+}
+
+Transkripti:
+${truncated}`;
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "Olet suomalaisen vanhustenhoitopalvelun kognitiivinen analyytikko. Palauta vain JSON." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("[extractCognitiveAssessment] AI gateway error:", response.status, await response.text());
+      return;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("[extractCognitiveAssessment] No JSON in response");
+      return;
+    }
+    const result = JSON.parse(jsonMatch[0]);
+
+    // Only save if there's something worth saving
+    if (result.overall_impression !== "normaali" || cognitiveEnabled) {
+      const { error } = await supabase.from("cognitive_assessments").insert({
+        elder_id: elderId,
+        call_report_id: callReportId,
+        orientation_score: result.orientation_score,
+        memory_score: result.memory_score,
+        fluency_score: result.fluency_score,
+        overall_impression: result.overall_impression,
+        observations: result.observations,
+        flags: result.flags || [],
+      });
+      if (error) console.error("[extractCognitiveAssessment] Insert error:", error);
+      else console.log(`[extractCognitiveAssessment] Saved (${result.overall_impression})`);
+    } else {
+      console.log("[extractCognitiveAssessment] Normal call, not saving (tracking disabled)");
+    }
+  } catch (err) {
+    console.error("[extractCognitiveAssessment] Error:", err);
   }
 }
