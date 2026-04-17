@@ -658,7 +658,7 @@ serve(async (req) => {
     const [elderResult, medsResult, memoriesResult, lastCallsResult, dayRemindersResult] = await Promise.all([
       supabase
         .from("elders")
-        .select("postal_code")
+        .select("postal_code, cognitive_tracking_enabled")
         .eq("id", elderId)
         .maybeSingle(),
       supabase
@@ -689,6 +689,7 @@ serve(async (req) => {
     ]);
 
     const postalCode = elderResult.data?.postal_code || null;
+    const cognitiveEnabled = elderResult.data?.cognitive_tracking_enabled ?? false;
     const meds = medsResult.data || [];
     const memories = memoriesResult.data || [];
     const lastCalls = lastCallsResult.data || [];
@@ -747,6 +748,7 @@ serve(async (req) => {
       weather_hint: weather?.hint || "",
       daily_topic: daily.topic,
       daily_topic_prompt: daily.prompt,
+      cognitive_tracking: cognitiveEnabled ? "enabled" : "disabled",
     });
 
     console.log(`[vapi-assistant-request] Returning speaking assistant for ${elderName}`);
