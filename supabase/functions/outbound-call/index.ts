@@ -34,7 +34,8 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function buildScheduledFirstMessage(fullName: string, weatherHint: string | null): string {
+function buildScheduledFirstMessage(fullName: string): string {
+  // Tervehdyksessä EI mainita säätä — se mainitaan vain luonnollisesti keskustelussa
   const firstName = fullName.split(" ")[0]?.trim();
   const greet = `Hyvää ${getTimeOfDay()}`;
   const name = firstName ? ` ${firstName}` : "";
@@ -49,11 +50,7 @@ function buildScheduledFirstMessage(fullName: string, weatherHint: string | null
     `Hei${name}, Aina tässä AinaHoivasta! Miten päivä on sujunut?`,
   ];
 
-  const base = pickRandom(variants);
-  if (weatherHint) {
-    return `${base} ${weatherHint}`;
-  }
-  return base;
+  return pickRandom(variants);
 }
 
 // Päivän teema arvotaan päivämäärän pohjalta — sama teema saman päivän aikana
