@@ -382,19 +382,102 @@ function getGreetingPrefix() {
   return "Hei";
 }
 
-function buildOpeningMessage(elderName?: string, direction: "inbound" | "outbound" = "inbound") {
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function buildOpeningMessage(elderName?: string, direction: "inbound" | "outbound" = "inbound", weatherHint?: string) {
   const greeting = getGreetingPrefix();
   const firstName = elderName?.split(" ")[0]?.trim();
+  const name = firstName ? ` ${firstName}` : "";
 
   if (direction === "outbound") {
-    return firstName
-      ? `${greeting} ${firstName}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`
-      : `${greeting}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
+    const variants = [
+      `${greeting}${name}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`,
+      `${greeting}${name}! Aina tässä, kiva kuulla ääntänne taas. Miten päivänne on alkanut?`,
+      `Hei${name}! Aina tässä AinaHoivasta. Miten voitte tänään?`,
+      `${greeting}${name}! Aina kysymässä kuulumisia — mitäs siellä?`,
+      `Tervehdys${name}! Aina tässä. Onko ollut hyvä päivä?`,
+    ];
+    const base = firstName ? pickRandom(variants) : `${greeting}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
+    return weatherHint ? `${base} ${weatherHint}` : base;
   }
 
-  return firstName
-    ? `${greeting} ${firstName}! Täällä Aina, kiva kun soititte! Miten Teillä menee?`
-    : DEFAULT_FIRST_MESSAGE;
+  // Inbound — vanhus soittaa itse
+  const inboundVariants = [
+    `${greeting}${name}! Täällä Aina, kiva kun soititte! Miten Teillä menee?`,
+    `Hei${name}! Aina tässä, mukava kuulla! Mitä asiaa?`,
+    `${greeting}${name}! Aina puhelimessa. Mitäpä kuuluu?`,
+    `Hei${name}, Aina tässä! Kiva että soititte — miten voitte?`,
+  ];
+  return firstName ? pickRandom(inboundVariants) : DEFAULT_FIRST_MESSAGE;
+}
+
+// Päivän teema arvotaan päivämäärän pohjalta
+function getDailyTopic(): { topic: string; prompt: string } {
+  const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+  const topics = [
+    { topic: "muistot", prompt: "Kysy jokin lämmin muisto menneiltä vuosilta — esim. lapsuudesta, työstä, häämatkoilta tai juhlista." },
+    { topic: "perhe", prompt: "Kysy kuulumisia lapsista, lapsenlapsista tai sisaruksista." },
+    { topic: "harrastukset", prompt: "Kysy mitä mukavaa on tehnyt — lukemista, käsitöitä, ristikoita, puutarhaa, musiikkia." },
+    { topic: "ruoka", prompt: "Kysy mitä on syönyt tänään tai mikä on lempiruokaa." },
+    { topic: "ulkoilu", prompt: "Kysy onko päässyt ulos, miltä luonto näyttää." },
+    { topic: "uni", prompt: "Kysy miten on nukkunut, onko levännyt hyvin." },
+    { topic: "naapurit", prompt: "Kysy onko jutellut naapureiden tai ystävien kanssa." },
+  ];
+  return topics[day % topics.length];
+}
+
+// Hae sää Open-Meteosta postinumeron perusteella (Suomi)
+async function fetchWeather(postalCode: string | null): Promise<{ hint: string; summary: string } | null> {
+  if (!postalCode) return null;
+  try {
+    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(postalCode)}&country=FI&count=1`);
+    const geo = await geoRes.json();
+    const loc = geo?.results?.[0];
+    if (!loc) return null;
+
+    const wRes = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
+      `&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&timezone=Europe%2FHelsinki&forecast_days=2`
+    );
+    const w = await wRes.json();
+    const tNow = Math.round(w?.current?.temperature_2m ?? 0);
+    const codeNow = w?.current?.weather_code ?? 0;
+    const tMaxTomorrow = Math.round(w?.daily?.temperature_2m_max?.[1] ?? 0);
+    const codeTomorrow = w?.daily?.weather_code?.[1] ?? 0;
+    const rainTomorrow = w?.daily?.precipitation_sum?.[1] ?? 0;
+
+    const describe = (code: number) => {
+      if (code === 0) return "aurinkoista";
+      if (code <= 3) return "puolipilvistä";
+      if (code <= 48) return "sumuista";
+      if (code <= 67) return "sateista";
+      if (code <= 77) return "lumista";
+      if (code <= 82) return "sadekuuroja";
+      return "vaihtelevaa";
+    };
+
+    const nowDesc = describe(codeNow);
+    const tomDesc = describe(codeTomorrow);
+    const isNiceTomorrow = codeTomorrow <= 3 && rainTomorrow < 1 && tMaxTomorrow >= 5;
+    const isNiceNow = codeNow <= 3 && tNow >= 5;
+
+    let hint = `Täällä on tänään ${nowDesc} ja noin ${tNow} astetta.`;
+    if (isNiceTomorrow) {
+      hint += ` Huomennakin näyttää kauniilta — voisi olla mukava päivä lähteä pienelle kävelylle!`;
+    } else if (isNiceNow) {
+      hint += ` Olisiko mukava käydä hetki ulkona?`;
+    } else if (codeTomorrow >= 51 && codeTomorrow <= 67) {
+      hint += ` Huomenna on luvassa sadetta, ehkä parempi pysyä lämpimässä.`;
+    }
+
+    const summary = `Tänään: ${nowDesc}, ${tNow}°C. Huomenna: ${tomDesc}, ${tMaxTomorrow}°C, sade ${rainTomorrow}mm.`;
+    return { hint, summary };
+  } catch (e) {
+    console.error("Weather fetch error:", e);
+    return null;
+  }
 }
 
 function buildAssistantResponse(firstMessage: string, context: string) {
