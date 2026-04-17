@@ -562,8 +562,13 @@ serve(async (req) => {
 
     console.log(`[vapi-assistant-request] Recognized: ${elderName} (${elderId})`);
 
-    // Fetch elder data in parallel — no Vapi API call needed
-    const [medsResult, memoriesResult, lastCallResult] = await Promise.all([
+    // Fetch elder data + postal_code in parallel
+    const [elderResult, medsResult, memoriesResult, lastCallsResult] = await Promise.all([
+      supabase
+        .from("elders")
+        .select("postal_code")
+        .eq("id", elderId)
+        .maybeSingle(),
       supabase
         .from("medications")
         .select("name, dosage, morning, noon, evening, has_dosette")
@@ -578,14 +583,15 @@ serve(async (req) => {
         .from("call_reports")
         .select("ai_summary, called_at, mood_score")
         .eq("elder_id", elderId)
+        .not("ai_summary", "is", null)
         .order("called_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(3),
     ]);
 
+    const postalCode = elderResult.data?.postal_code || null;
     const meds = medsResult.data || [];
     const memories = memoriesResult.data || [];
-    const lastCall = lastCallResult.data;
+    const lastCalls = lastCallsResult.data || [];
 
     const medsMorning = meds
       .filter((m: any) => m.morning)
@@ -605,12 +611,18 @@ serve(async (req) => {
       ? memories.map((m: any) => `[${m.memory_type}] ${m.content}`).join("\n")
       : "Ei aiempia muistoja";
 
-    const lastCallText = lastCall
-      ? `Viimeisin puhelu: ${new Date(lastCall.called_at!).toLocaleDateString("fi-FI")}\nMieliala oli: ${lastCall.mood_score}/5\nYhteenveto: ${lastCall.ai_summary}`
-      : "Ensimmäinen puhelu";
+    const lastCallText = lastCalls.length
+      ? lastCalls.map((c: any, i: number) =>
+          `${i === 0 ? "Viimeisin" : `Aiempi ${i}`} (${new Date(c.called_at!).toLocaleDateString("fi-FI")}, mieliala ${c.mood_score ?? "?"}/5): ${c.ai_summary}`
+        ).join("\n")
+      : "Ensimmäinen puhelu — ei aiempaa keskustelua";
+
+    // Fetch weather + pick daily topic in parallel
+    const weather = await fetchWeather(postalCode);
+    const daily = getDailyTopic();
 
     const now = new Date().toLocaleString("fi-FI", { timeZone: "Europe/Helsinki" });
-    const firstMessage = buildOpeningMessage(elderName, isOutboundCall ? "outbound" : "inbound");
+    const firstMessage = buildOpeningMessage(elderName, isOutboundCall ? "outbound" : "inbound", weather?.hint);
     const context = buildFullSystemPrompt({
       elder_name: elderName,
       call_type: isOutboundCall ? "scheduled" : "inbound",
@@ -623,6 +635,10 @@ serve(async (req) => {
       last_call: lastCallText,
       now,
       direction: callLabel,
+      weather: weather?.summary || "Säätietoa ei saatavilla",
+      weather_hint: weather?.hint || "",
+      daily_topic: daily.topic,
+      daily_topic_prompt: daily.prompt,
     });
 
     console.log(`[vapi-assistant-request] Returning speaking assistant for ${elderName}`);
