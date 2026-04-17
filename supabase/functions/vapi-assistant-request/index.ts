@@ -679,6 +679,31 @@ serve(async (req) => {
         ).join("\n")
       : "Ensimmäinen puhelu — ei aiempaa keskustelua";
 
+    // Build today's reminders text (call-embedded)
+    const dayReminders = dayRemindersResult.data || [];
+    const dayRemindersText = dayReminders.length
+      ? dayReminders.map((r: any, i: number) => `${i + 1}. ${r.message}`).join("\n")
+      : "Ei muistutuksia tähän puheluun.";
+    const dayReminderIds = dayReminders.map((r: any) => r.id);
+
+    // Stash reminder IDs on the call so vapi-webhook can mark them sent after the call ends
+    const vapiCallId = body?.message?.call?.id;
+    if (vapiCallId && dayReminderIds.length) {
+      try {
+        await supabase.from("call_reports").upsert(
+          {
+            elder_id: elderId,
+            vapi_call_id: vapiCallId,
+            call_type: isOutboundCall ? "scheduled" : "inbound",
+            ai_summary: `__pending_reminders:${dayReminderIds.join(",")}`,
+          },
+          { onConflict: "vapi_call_id" }
+        );
+      } catch (e) {
+        console.error("[vapi-assistant-request] Failed to stash reminder IDs:", e);
+      }
+    }
+
     // Fetch weather + pick daily topic in parallel
     const weather = await fetchWeather(postalCode);
     const daily = getDailyTopic();
@@ -693,6 +718,7 @@ serve(async (req) => {
       medications_evening: medsEvening,
       has_dosette: hasDosette ? "kyllä" : "ei",
       reminder_message: "",
+      day_reminders: dayRemindersText,
       memories: memoryText,
       last_call: lastCallText,
       now,
