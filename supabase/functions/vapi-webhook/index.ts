@@ -310,15 +310,17 @@ async function analyzeTranscript(transcript: string) {
     return fallbackAnalysis();
   }
 
-  // Kustannussäästö: mieliala selviää puhelun alkupuolesta
-  // Käytetään max 4000 merkkiä (≈ 2-3 min puhetta) — säästää tokeneja pitkissä puheluissa
-  const MAX_TRANSCRIPT_CHARS = 4000;
+  // GPT analysoi koko transkriptin → tunnistaa kaikki kiputilat, lääkkeet, muistutukset ja teemat
+  // Turvaraja: erittäin pitkät puhelut (yli ~20 min puhetta) leikataan, jotta context window ei ylity
+  const MAX_TRANSCRIPT_CHARS = 30000;
   const truncatedTranscript = transcript.length > MAX_TRANSCRIPT_CHARS
-    ? transcript.slice(0, MAX_TRANSCRIPT_CHARS) + "\n\n[...puhelu jatkuu, leikattu pituuden vuoksi...]"
+    ? transcript.slice(0, MAX_TRANSCRIPT_CHARS) + "\n\n[...puhelu jatkuu, leikattu turvarajan vuoksi...]"
     : transcript;
 
   if (transcript.length > MAX_TRANSCRIPT_CHARS) {
-    console.log(`[vapi-webhook] Transcript truncated: ${transcript.length} → ${MAX_TRANSCRIPT_CHARS} chars`);
+    console.log(`[vapi-webhook] Transcript truncated (safety cap): ${transcript.length} → ${MAX_TRANSCRIPT_CHARS} chars`);
+  } else {
+    console.log(`[vapi-webhook] Full transcript analyzed: ${transcript.length} chars`);
   }
 
   const prompt = `Analysoi tämä vanhuksen ja AI-assistentin välinen puhelinkeskustelu suomeksi.
