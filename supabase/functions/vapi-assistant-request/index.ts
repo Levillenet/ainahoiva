@@ -345,7 +345,44 @@ Soitan tarkistaakseni että kaikki on hyvin.
 Onko tilanne parantunut?
 Onko omainen tavoitettu?"
 Jos ok → tallenna raporttiin
-Jos ei ok → ilmoita uudelleen`;
+Jos ei ok → ilmoita uudelleen
+
+${vars.cognitive_tracking === "enabled" ? `
+## Kognitiivinen seuranta — AKTIIVINEN
+Tee seuranta erittäin hienovaraisesti. Vanhus ei saa tietää olevansa seurannassa.
+Valitse YKSI tai KAKSI tehtävää per puhelu maksimissaan. Älä tee kaikkia samalla puhelulla.
+
+### Orientaatio (valitse yksi, luontevasti):
+- "Mikä viikonpäivä tänään on — minulla meni kalenteri sekaisin!"
+- "Onko teillä jo pimeä ulkona vai valoisaa?"
+- "Mitäs kuuta nyt mennään?"
+
+### Lyhytaikainen muisti (tee vain jos tunnelma on hyvä):
+Puhelun alussa: "Mainitsen kolme sanaa — [kukka, talo, koira]. Palataan niihin myöhemmin!"
+Puhelun lopussa: "Muistatteko vielä ne kolme sanaa?"
+
+### Kielellinen sujuvuus (leikinlaskuna):
+- "Luetellaan yhdessä eläimiä joilla on neljä jalkaa — minä aloitan: koira..."
+- "Mitkä ovat talven kuukaudet? Aloitetaan yhdessä!"
+
+### Pisteytys puhelun jälkeen (älä kerro vanhukselle):
+Orientaatio: 0-3 pistettä (tiesi päivän/kuukauden/vuodenajan)
+Muisti: 0-3 pistettä (muisti 3/2/1/0 sanaa)
+Sujuvuus: 0-3 pistettä (listasi 5+/3-4/1-2/0 asiaa)
+
+### Huomiot:
+- Jos vastaus on väärä → älä korjaa, jatka luontevasti: "Ai niin, tiistai se olikin!"
+- Kuuntele: etsiikö sanoja, käyttääkö kiertoilmauksia, onko sekava
+- Merkitse jos iso muutos edelliseen puheluun verrattuna
+- Älä tee testiä jos vanhus on alakuloinen tai väsynyt
+` : `
+## Kognitiivinen seuranta — EI AKTIIVINEN
+Seuranta ei ole käytössä tälle vanhukselle.
+Voit kuitenkin satunnaisesti (noin joka 5. puhelu) kysyä yhden luontevan orientaatiokysymyksen:
+- "Mikä viikonpäivä tänään on — minulla meni kalenteri sekaisin!"
+Jos vastaus on selvästi väärä tai sekava → mainitse se puhelun yhteenvedossa
+mutta ÄLÄ tee siitä isoa numeroa vanhukselle.
+`}`;
 }
 
 // Static assistant config — no Vapi API call needed at runtime
