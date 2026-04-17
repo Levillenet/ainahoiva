@@ -671,16 +671,16 @@ serve(async (req) => {
 
     console.log(`[vapi-assistant-request] Recognized: ${elderName} (${elderId})`);
 
-    // Determine if this is a morning or evening call (Helsinki local hour)
-    const helsinkiHour = (new Date().getUTCHours() + 3) % 24;
-    const isMorningSlot = helsinkiHour < 14; // before 14:00 = morning slot, otherwise evening
+    // Determine if this is a morning or evening call (Helsinki local hour, DST-safe)
+    const helsinkiHour = getHelsinkiHour();
+    const isMorningSlot = helsinkiHour < 14;
     const callSlotMethods = isMorningSlot
       ? ["morning_call", "both_calls"]
       : ["evening_call", "both_calls"];
 
-    // Today's date range in Helsinki for day-reminder lookup
-    const todayHelsinki = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const todayStart = `${todayHelsinki}T00:00:00+03:00`;
+    // Today's date range in Helsinki for day-reminder lookup (DST-safe wide range)
+    const todayHelsinki = getHelsinkiDateString();
+    const todayStart = `${todayHelsinki}T00:00:00+02:00`;
     const todayEnd = `${todayHelsinki}T23:59:59+03:00`;
 
     // Fetch elder data + postal_code + today's call-embedded reminders in parallel
