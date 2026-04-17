@@ -452,13 +452,36 @@ async function forwardToWebhook(body: unknown) {
   });
 }
 
-function getGreetingPrefix() {
-  const hour = (new Date().getUTCHours() + 3) % 24;
+// Helsinki local hour — handles DST automatically (EET/EEST)
+function getHelsinkiHour(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const hourStr = parts.find((p) => p.type === "hour")?.value ?? "0";
+  return parseInt(hourStr, 10) % 24;
+}
 
+function getHelsinkiDateString(): string {
+  // YYYY-MM-DD in Helsinki local time
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  return `${y}-${m}-${d}`;
+}
+
+function getGreetingPrefix() {
+  const hour = getHelsinkiHour();
   if (hour >= 5 && hour < 11) return "Hyvää huomenta";
   if (hour >= 11 && hour < 17) return "Hyvää päivää";
   if (hour >= 17 && hour < 22) return "Hyvää iltaa";
-
   return "Hei";
 }
 
