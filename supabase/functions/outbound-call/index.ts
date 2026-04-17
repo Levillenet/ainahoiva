@@ -340,14 +340,15 @@ serve(async (req) => {
         ).join("\n")
       : "Ensimmäinen puhelu — ei aiempaa keskustelua";
 
-    // Fetch weather based on postal code
-    const weather = await fetchWeather(elder.postal_code);
+    // Fetch weather based on postal code (time-aware)
+    const weather = await fetchWeather(elder.postal_code, getHelsinkiHour());
     const weatherSummary = weather?.summary || "Säätietoa ei saatavilla";
 
     // Pick a daily topic
     const daily = getDailyTopic();
 
-    const firstMessage = buildScheduledFirstMessage(elder.full_name, weather?.hint || null);
+    // Sää EI tervehdykseen — se mainitaan vain luonnollisesti keskustelussa
+    const firstMessage = buildScheduledFirstMessage(elder.full_name);
 
     console.log(`[outbound-call] Scheduled call to ${elder.full_name}, topic=${daily.topic}, weather=${weatherSummary}`);
 
