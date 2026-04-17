@@ -25,6 +25,7 @@ function buildFullSystemPrompt(vars: {
   medications_evening: string;
   has_dosette: string;
   reminder_message: string;
+  day_reminders: string;
   memories: string;
   last_call: string;
   now: string;
@@ -55,6 +56,10 @@ Dosetti käytössä: ${vars.has_dosette}
 Muistutuksen aihe: ${vars.reminder_message}
 Aiemmat muistot: ${vars.memories}
 Viimeisimmät puhelut (3 viimeisintä): ${vars.last_call}
+
+## Tämän päivän muistutukset omaiselta — TÄRKEÄ
+${vars.day_reminders}
+Mainitse nämä asiat LUONTEVASTI puhelun aikana — älä lue listana, älä kerro että "omainen pyysi muistuttamaan", vaan kuulosta siltä että muistat itse. Esim. "Muistattehan, että Teillä on tänään lääkärin aika kello 14." Yhdistä tarvittaessa useampi asia samaan keskusteluun. Älä unohda yhtäkään.
 
 ## Säätieto (käytä luonnollisesti keskustelussa)
 ${vars.weather}
