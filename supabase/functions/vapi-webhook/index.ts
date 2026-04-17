@@ -897,6 +897,8 @@ Jos ei mainintaa → palauta null`;
     console.log(`[analyzeMedications] Saved medication logs for elder ${elderId}`);
   } catch (error) {
     console.error("[analyzeMedications] Error:", error);
+  }
+}
 
 async function extractCognitiveAssessment(transcript: string, elderId: string, callReportId: string, cognitiveEnabled: boolean) {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
