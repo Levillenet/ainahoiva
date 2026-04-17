@@ -366,6 +366,15 @@ const STATIC_ASSISTANT_CONFIG = {
     summaryPlan: { enabled: false },
     successEvaluationPlan: { enabled: false },
   },
+  startSpeakingPlan: {
+    waitSeconds: 0.4,
+    smartEndpointingEnabled: false,
+    transcriptionEndpointingPlan: {
+      onPunctuationSeconds: 0.4,
+      onNoPunctuationSeconds: 1.5,
+      onNumberSeconds: 0.5,
+    },
+  },
 };
 
 async function forwardToWebhook(body: unknown) {
