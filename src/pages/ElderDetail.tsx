@@ -274,6 +274,35 @@ const ElderDetail = () => {
         </div>
       </div>
 
+      {/* Cognitive tracking */}
+      <div className="bg-card rounded-lg p-6 border border-border">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <h2 className="text-lg font-bold text-cream flex items-center gap-2">
+              <Brain className="w-5 h-5 text-gold" /> Kognitiivinen seuranta
+            </h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              Aina seuraa hienovaraisesti muistin ja orientaation muutoksia puheluiden aikana.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2 flex items-start gap-1.5">
+              <Heart className="w-3.5 h-3.5 mt-0.5 text-sage shrink-0" />
+              Seuranta on täysin huomaamatonta — vanhus ei tiedä olevansa seurattuna.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{elder.cognitive_tracking_enabled ? 'Käytössä' : 'Pois'}</span>
+            <Switch checked={!!elder.cognitive_tracking_enabled} onCheckedChange={toggleCognitive} />
+          </div>
+        </div>
+        <div className="mt-4">
+          <Link to={`/dashboard/vanhukset/${elder.id}/kognitio`}>
+            <Button variant="outline" size="sm" className="border-gold text-gold hover:bg-gold/10">
+              <Brain className="w-4 h-4 mr-2" /> Avaa kognitio-raportti
+            </Button>
+          </Link>
+        </div>
+      </div>
+
       {/* Mood chart */}
       <div className="bg-card rounded-lg p-6 border border-border">
         <h2 className="text-lg font-bold text-cream mb-4">Mielialatrendit (30 pv)</h2>
