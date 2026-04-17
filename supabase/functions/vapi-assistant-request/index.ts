@@ -489,7 +489,7 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function buildOpeningMessage(elderName?: string, direction: "inbound" | "outbound" = "inbound", weatherHint?: string) {
+function buildOpeningMessage(elderName?: string, direction: "inbound" | "outbound" = "inbound") {
   const greeting = getGreetingPrefix();
   const firstName = elderName?.split(" ")[0]?.trim();
   const name = firstName ? ` ${firstName}` : "";
@@ -502,8 +502,7 @@ function buildOpeningMessage(elderName?: string, direction: "inbound" | "outboun
       `${greeting}${name}! Aina kysymässä kuulumisia — mitäs siellä?`,
       `Tervehdys${name}! Aina tässä. Onko ollut hyvä päivä?`,
     ];
-    const base = firstName ? pickRandom(variants) : `${greeting}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
-    return weatherHint ? `${base} ${weatherHint}` : base;
+    return firstName ? pickRandom(variants) : `${greeting}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
   }
 
   // Inbound — vanhus soittaa itse
