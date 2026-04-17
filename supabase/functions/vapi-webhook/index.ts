@@ -994,4 +994,3 @@ ${truncated}`;
     console.error("[extractCognitiveAssessment] Error:", err);
   }
 }
-}
