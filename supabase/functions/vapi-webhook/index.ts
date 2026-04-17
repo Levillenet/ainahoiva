@@ -310,11 +310,22 @@ async function analyzeTranscript(transcript: string) {
     return fallbackAnalysis();
   }
 
+  // Kustannussäästö: mieliala selviää puhelun alkupuolesta
+  // Käytetään max 4000 merkkiä (≈ 2-3 min puhetta) — säästää tokeneja pitkissä puheluissa
+  const MAX_TRANSCRIPT_CHARS = 4000;
+  const truncatedTranscript = transcript.length > MAX_TRANSCRIPT_CHARS
+    ? transcript.slice(0, MAX_TRANSCRIPT_CHARS) + "\n\n[...puhelu jatkuu, leikattu pituuden vuoksi...]"
+    : transcript;
+
+  if (transcript.length > MAX_TRANSCRIPT_CHARS) {
+    console.log(`[vapi-webhook] Transcript truncated: ${transcript.length} → ${MAX_TRANSCRIPT_CHARS} chars`);
+  }
+
   const prompt = `Analysoi tämä vanhuksen ja AI-assistentin välinen puhelinkeskustelu suomeksi.
 Palauta VAIN JSON-objekti, ei muuta tekstiä.
 
 Transkripti:
-${transcript}
+${truncatedTranscript}
 
 Palauta:
 {

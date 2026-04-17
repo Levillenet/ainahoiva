@@ -154,7 +154,75 @@ serve(async (req) => {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const audioBlob = await audioResponse.blob();
+    const audioArrayBuffer = await audioResponse.arrayBuffer();
+    const fullBytes = new Uint8Array(audioArrayBuffer);
+
+    // === Kustannussäästö: leikkaa WAV ensimmäiseen 60 sekuntiin ===
+    // Hume laskutetaan per minuutti audiosta. Mielialatieto selviää alkupuolesta.
+    const MAX_SECONDS = 60;
+    let trimmedBytes = fullBytes;
+    let trimNote = "";
+
+    try {
+      // Tarkista onko WAV: 'RIFF' (4 tavua) ... 'WAVE' (offset 8)
+      const isRiff = fullBytes[0] === 0x52 && fullBytes[1] === 0x49 && fullBytes[2] === 0x46 && fullBytes[3] === 0x46;
+      const isWave = fullBytes[8] === 0x57 && fullBytes[9] === 0x41 && fullBytes[10] === 0x56 && fullBytes[11] === 0x45;
+
+      if (isRiff && isWave && fullBytes.length > 44) {
+        const view = new DataView(audioArrayBuffer);
+        // 'fmt ' chunk on yleensä offsetissa 12
+        // sampleRate offset 24 (4 tavua, little-endian)
+        // numChannels offset 22 (2 tavua)
+        // bitsPerSample offset 34 (2 tavua)
+        const numChannels = view.getUint16(22, true);
+        const sampleRate = view.getUint32(24, true);
+        const bitsPerSample = view.getUint16(34, true);
+        const bytesPerSecond = sampleRate * numChannels * (bitsPerSample / 8);
+
+        // Etsi 'data'-chunk dynaamisesti (header voi olla > 44 tavua jos lisächunkkeja)
+        let dataOffset = 12;
+        while (dataOffset < Math.min(fullBytes.length - 8, 200)) {
+          const chunkId = String.fromCharCode(
+            fullBytes[dataOffset], fullBytes[dataOffset + 1],
+            fullBytes[dataOffset + 2], fullBytes[dataOffset + 3]
+          );
+          const chunkSize = view.getUint32(dataOffset + 4, true);
+          if (chunkId === "data") {
+            dataOffset += 8; // ohita id + size
+            break;
+          }
+          dataOffset += 8 + chunkSize;
+        }
+
+        const maxDataBytes = MAX_SECONDS * bytesPerSecond;
+        const fullDataBytes = fullBytes.length - dataOffset;
+
+        if (bytesPerSecond > 0 && fullDataBytes > maxDataBytes) {
+          const newDataSize = Math.floor(maxDataBytes);
+          const newTotalLength = dataOffset + newDataSize;
+          trimmedBytes = new Uint8Array(newTotalLength);
+          trimmedBytes.set(fullBytes.subarray(0, newTotalLength));
+          // Päivitä RIFF size (offset 4) ja data chunk size (dataOffset - 4)
+          const newView = new DataView(trimmedBytes.buffer);
+          newView.setUint32(4, newTotalLength - 8, true);
+          newView.setUint32(dataOffset - 4, newDataSize, true);
+          const savedPct = Math.round((1 - newTotalLength / fullBytes.length) * 100);
+          trimNote = `WAV-leikkaus 60s (säästö ${savedPct}%, ${fullBytes.length}→${newTotalLength} tavua, ${sampleRate}Hz/${numChannels}ch/${bitsPerSample}bit)`;
+          console.log(`[analyze-emotion] ${trimNote}`);
+        } else {
+          trimNote = `WAV alle 60s tai header outo, käytetään koko ääntä (${fullBytes.length} tavua)`;
+          console.log(`[analyze-emotion] ${trimNote}`);
+        }
+      } else {
+        trimNote = `Ei WAV-muotoa, käytetään koko ääntä (${fullBytes.length} tavua)`;
+        console.log(`[analyze-emotion] ${trimNote}`);
+      }
+    } catch (trimErr) {
+      console.error("[analyze-emotion] Trim failed, using full audio:", trimErr);
+      trimmedBytes = fullBytes;
+    }
+
+    const audioBlob = new Blob([trimmedBytes], { type: "audio/wav" });
 
     const formData = new FormData();
     formData.append("json", JSON.stringify({ models: { prosody: { granularity: "utterance" } } }));
