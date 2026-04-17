@@ -312,18 +312,31 @@ serve(async (req) => {
       ? memories.map((m: { memory_type: string; content: string }) => `[${m.memory_type}] ${m.content}`).join("\n")
       : "Ei aiempia muistoja";
 
-    // Get last call summary
-    const { data: lastCall } = await supabase
+    // Get last 3 call summaries for natural follow-up
+    const { data: lastCalls } = await supabase
       .from("call_reports")
       .select("ai_summary, called_at, mood_score")
       .eq("elder_id", elder.id)
+      .not("ai_summary", "is", null)
       .order("called_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(3);
 
-    const lastCallText = lastCall
-      ? `Viimeisin puhelu: ${new Date(lastCall.called_at!).toLocaleDateString("fi-FI")}\nMieliala oli: ${lastCall.mood_score}/5\nYhteenveto: ${lastCall.ai_summary}`
-      : "Ensimmäinen puhelu";
+    const lastCallText = lastCalls?.length
+      ? lastCalls.map((c: any, i: number) =>
+          `${i === 0 ? "Viimeisin puhelu" : `Puhelu ${i + 1}`} (${new Date(c.called_at!).toLocaleDateString("fi-FI")}): mieliala ${c.mood_score ?? "?"}/5 — ${c.ai_summary}`
+        ).join("\n")
+      : "Ensimmäinen puhelu — ei aiempaa keskustelua";
+
+    // Fetch weather based on postal code
+    const weather = await fetchWeather(elder.postal_code);
+    const weatherSummary = weather?.summary || "Säätietoa ei saatavilla";
+
+    // Pick a daily topic
+    const daily = getDailyTopic();
+
+    const firstMessage = buildScheduledFirstMessage(elder.full_name, weather?.hint || null);
+
+    console.log(`[outbound-call] Scheduled call to ${elder.full_name}, topic=${daily.topic}, weather=${weatherSummary}`);
 
     const vapiResponse = await fetch("https://api.vapi.ai/call/phone", {
       method: "POST",
@@ -339,7 +352,7 @@ serve(async (req) => {
         },
         phoneNumberId: VAPI_PHONE_NUMBER_ID,
         assistantOverrides: {
-          firstMessage: buildScheduledFirstMessage(elder.full_name),
+          firstMessage,
           firstMessageMode: "assistant-speaks-first",
           variableValues: {
             elder_name: elder.full_name,
@@ -350,6 +363,10 @@ serve(async (req) => {
             memories: memoryText,
             last_call: lastCallText,
             has_dosette: hasDosette ? "true" : "false",
+            weather: weatherSummary,
+            weather_hint: weather?.hint || "",
+            daily_topic: daily.topic,
+            daily_topic_prompt: daily.prompt,
           },
         },
       }),
