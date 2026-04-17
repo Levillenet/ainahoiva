@@ -160,6 +160,7 @@ export type Database = {
           is_active: boolean | null
           notes: string | null
           phone_number: string
+          postal_code: string | null
         }
         Insert: {
           address?: string | null
@@ -173,6 +174,7 @@ export type Database = {
           is_active?: boolean | null
           notes?: string | null
           phone_number: string
+          postal_code?: string | null
         }
         Update: {
           address?: string | null
@@ -186,6 +188,7 @@ export type Database = {
           is_active?: boolean | null
           notes?: string | null
           phone_number?: string
+          postal_code?: string | null
         }
         Relationships: []
       }

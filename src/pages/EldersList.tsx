@@ -23,7 +23,7 @@ const EldersList = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    full_name: '', phone_number: '', date_of_birth: '', address: '',
+    full_name: '', phone_number: '', date_of_birth: '', address: '', postal_code: '',
     call_time_morning: '08:00', call_time_evening: '19:00', notes: '',
   });
 
@@ -57,7 +57,7 @@ const EldersList = () => {
     } else {
       toast({ title: 'Vanhus lisätty!' });
       setDialogOpen(false);
-      setForm({ full_name: '', phone_number: '', date_of_birth: '', address: '', call_time_morning: '08:00', call_time_evening: '19:00', notes: '' });
+      setForm({ full_name: '', phone_number: '', date_of_birth: '', address: '', postal_code: '', call_time_morning: '08:00', call_time_evening: '19:00', notes: '' });
       fetchElders();
     }
   };
@@ -92,6 +92,10 @@ const EldersList = () => {
               <div>
                 <Label className="text-cream">Osoite</Label>
                 <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className="bg-muted border-border text-cream" />
+              </div>
+              <div>
+                <Label className="text-cream">Postinumero (säätietoja varten)</Label>
+                <Input value={form.postal_code} onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))} placeholder="esim. 00100" className="bg-muted border-border text-cream" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

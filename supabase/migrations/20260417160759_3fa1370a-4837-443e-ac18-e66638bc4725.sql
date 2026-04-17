@@ -1,0 +1,1 @@
+ALTER TABLE public.elders ADD COLUMN IF NOT EXISTS postal_code text;

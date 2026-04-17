@@ -19,12 +19,99 @@ function getTimeOfDay(): string {
   return "yötä";
 }
 
-function buildScheduledFirstMessage(fullName: string): string {
-  const firstName = fullName.split(" ")[0]?.trim();
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
-  return firstName
-    ? `Hyvää ${getTimeOfDay()} ${firstName}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`
-    : `Hyvää ${getTimeOfDay()}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
+function buildScheduledFirstMessage(fullName: string, weatherHint: string | null): string {
+  const firstName = fullName.split(" ")[0]?.trim();
+  const greet = `Hyvää ${getTimeOfDay()}`;
+  const name = firstName ? ` ${firstName}` : "";
+
+  const variants = [
+    `${greet}${name}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`,
+    `${greet}${name}! Täällä Aina, kiva kuulla ääntänne taas. Miten päivänne on alkanut?`,
+    `Hei${name}! Aina tässä AinaHoivasta. Miten voitte tänään?`,
+    `${greet}${name}! Aina kysymässä kuulumisia — mitäs siellä?`,
+    `Tervehdys${name}! Aina tässä. Onko ollut hyvä päivä?`,
+    `${greet}${name}! Mukava soittaa Teille taas. Kertokaa miten menee?`,
+    `Hei${name}, Aina tässä AinaHoivasta! Miten päivä on sujunut?`,
+  ];
+
+  const base = pickRandom(variants);
+  if (weatherHint) {
+    return `${base} ${weatherHint}`;
+  }
+  return base;
+}
+
+// Päivän teema arvotaan päivämäärän pohjalta — sama teema saman päivän aikana
+function getDailyTopic(): { topic: string; prompt: string } {
+  const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+  const topics = [
+    { topic: "muistot", prompt: "Kysy jokin lämmin muisto menneiltä vuosilta — esim. lapsuudesta, työstä, häämatkoilta, tai mukavista juhlista." },
+    { topic: "perhe", prompt: "Kysy kuulumisia lapsista, lapsenlapsista tai sisaruksista. Onko kuulunut viime aikoina?" },
+    { topic: "harrastukset", prompt: "Kysy mitä mukavaa on tehnyt — lukemista, käsitöitä, ristikoita, puutarhaa, musiikkia." },
+    { topic: "ruoka", prompt: "Kysy mitä on syönyt tänään tai mikä on lempiruokaa. Maistuuko ruoka?" },
+    { topic: "ulkoilu", prompt: "Kysy onko päässyt ulos, miltä luonto näyttää, onko nähnyt lintuja tai naapureita." },
+    { topic: "uni", prompt: "Kysy miten on nukkunut, onko levännyt hyvin." },
+    { topic: "naapurit", prompt: "Kysy onko jutellut naapureiden tai ystävien kanssa, onko joku käynyt kylässä." },
+  ];
+  return topics[day % topics.length];
+}
+
+// Hae sää Open-Meteosta postinumeron perusteella (Suomi)
+async function fetchWeather(postalCode: string | null): Promise<{ hint: string; summary: string } | null> {
+  if (!postalCode) return null;
+  try {
+    // 1. Postinumero -> koordinaatit Open-Meteo geocoding
+    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(postalCode)}&country=FI&count=1`);
+    const geo = await geoRes.json();
+    const loc = geo?.results?.[0];
+    if (!loc) return null;
+
+    // 2. Säätieto + huomisen ennuste
+    const wRes = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
+      `&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&timezone=Europe%2FHelsinki&forecast_days=2`
+    );
+    const w = await wRes.json();
+    const tNow = Math.round(w?.current?.temperature_2m ?? 0);
+    const codeNow = w?.current?.weather_code ?? 0;
+    const tMaxTomorrow = Math.round(w?.daily?.temperature_2m_max?.[1] ?? 0);
+    const codeTomorrow = w?.daily?.weather_code?.[1] ?? 0;
+    const rainTomorrow = w?.daily?.precipitation_sum?.[1] ?? 0;
+
+    const describe = (code: number) => {
+      if (code === 0) return "aurinkoista";
+      if (code <= 3) return "puolipilvistä";
+      if (code <= 48) return "sumuista";
+      if (code <= 67) return "sateista";
+      if (code <= 77) return "lumista";
+      if (code <= 82) return "sadekuuroja";
+      return "vaihtelevaa";
+    };
+
+    const nowDesc = describe(codeNow);
+    const tomDesc = describe(codeTomorrow);
+    const isNiceTomorrow = codeTomorrow <= 3 && rainTomorrow < 1 && tMaxTomorrow >= 5;
+    const isNiceNow = codeNow <= 3 && tNow >= 5;
+
+    let hint = `Täällä on tänään ${nowDesc} ja noin ${tNow} astetta.`;
+    if (isNiceTomorrow) {
+      hint += ` Huomennakin näyttää kauniilta — voisi olla mukava päivä lähteä vaikka pienelle kävelylle!`;
+    } else if (isNiceNow) {
+      hint += ` Olisiko mukava käydä hetki ulkona?`;
+    } else if (codeTomorrow >= 51 && codeTomorrow <= 67) {
+      hint += ` Huomenna on luvassa sadetta, ehkä parempi pysyä lämpimässä.`;
+    }
+
+    const summary = `Tänään: ${nowDesc}, ${tNow}°C. Huomenna: ${tomDesc}, ${tMaxTomorrow}°C, sade ${rainTomorrow}mm.`;
+    return { hint, summary };
+  } catch (e) {
+    console.error("Weather fetch error:", e);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -225,18 +312,31 @@ serve(async (req) => {
       ? memories.map((m: { memory_type: string; content: string }) => `[${m.memory_type}] ${m.content}`).join("\n")
       : "Ei aiempia muistoja";
 
-    // Get last call summary
-    const { data: lastCall } = await supabase
+    // Get last 3 call summaries for natural follow-up
+    const { data: lastCalls } = await supabase
       .from("call_reports")
       .select("ai_summary, called_at, mood_score")
       .eq("elder_id", elder.id)
+      .not("ai_summary", "is", null)
       .order("called_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(3);
 
-    const lastCallText = lastCall
-      ? `Viimeisin puhelu: ${new Date(lastCall.called_at!).toLocaleDateString("fi-FI")}\nMieliala oli: ${lastCall.mood_score}/5\nYhteenveto: ${lastCall.ai_summary}`
-      : "Ensimmäinen puhelu";
+    const lastCallText = lastCalls?.length
+      ? lastCalls.map((c: any, i: number) =>
+          `${i === 0 ? "Viimeisin puhelu" : `Puhelu ${i + 1}`} (${new Date(c.called_at!).toLocaleDateString("fi-FI")}): mieliala ${c.mood_score ?? "?"}/5 — ${c.ai_summary}`
+        ).join("\n")
+      : "Ensimmäinen puhelu — ei aiempaa keskustelua";
+
+    // Fetch weather based on postal code
+    const weather = await fetchWeather(elder.postal_code);
+    const weatherSummary = weather?.summary || "Säätietoa ei saatavilla";
+
+    // Pick a daily topic
+    const daily = getDailyTopic();
+
+    const firstMessage = buildScheduledFirstMessage(elder.full_name, weather?.hint || null);
+
+    console.log(`[outbound-call] Scheduled call to ${elder.full_name}, topic=${daily.topic}, weather=${weatherSummary}`);
 
     const vapiResponse = await fetch("https://api.vapi.ai/call/phone", {
       method: "POST",
@@ -252,7 +352,7 @@ serve(async (req) => {
         },
         phoneNumberId: VAPI_PHONE_NUMBER_ID,
         assistantOverrides: {
-          firstMessage: buildScheduledFirstMessage(elder.full_name),
+          firstMessage,
           firstMessageMode: "assistant-speaks-first",
           variableValues: {
             elder_name: elder.full_name,
@@ -263,6 +363,10 @@ serve(async (req) => {
             memories: memoryText,
             last_call: lastCallText,
             has_dosette: hasDosette ? "true" : "false",
+            weather: weatherSummary,
+            weather_hint: weather?.hint || "",
+            daily_topic: daily.topic,
+            daily_topic_prompt: daily.prompt,
           },
         },
       }),
