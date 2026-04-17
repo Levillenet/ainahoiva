@@ -161,7 +161,9 @@ function buildSpeechResponse(
   if (!news || news.items.length === 0) {
     return `Pahoittelut, en saanut juuri nyt yhteyttä uutispalveluun ${category === "headlines" ? "" : category + "-osastolle "}. Kokeillaanko myöhemmin?`;
   }
-  const intro = `Tässä päivän ${news.label} ${news.source}ista. `;
+  // "Yle" → "Yleltä", "Helsingin Sanomat" → "Helsingin Sanomista"
+  const sourceSpoken = news.source === "Yle" ? "Yleltä" : `${news.source}ista`;
+  const intro = `Tässä päivän ${news.label} ${sourceSpoken}. `;
   const lines = news.items.map((it, i) => {
     const num = i === 0 ? "Ensimmäinen" : "Toinen";
     return `${num} uutinen: ${it.title}.${it.description ? " " + it.description : ""}`;
