@@ -34,6 +34,7 @@ function buildFullSystemPrompt(vars: {
   weather_hint: string;
   daily_topic: string;
   daily_topic_prompt: string;
+  cognitive_tracking: string;
 }) {
   return `## TÄRKEÄ — Älä lopeta puhelua
 Älä koskaan kutsu end_call_tool ellei
