@@ -13,8 +13,10 @@ function parseRssItems(xml: string, max = 2): { title: string; description: stri
   for (const block of matches.slice(0, max)) {
     const titleMatch = block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
     const descMatch = block.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
-    const title = (titleMatch?.[1] || "").replace(/<[^>]+>/g, "").trim();
+    let title = (titleMatch?.[1] || "").replace(/<[^>]+>/g, "").trim();
     let description = (descMatch?.[1] || "").replace(/<[^>]+>/g, "").trim();
+    // Siivoa HS:n osasto-prefixit kuten "Parhaita timanttijuttuja |"
+    title = title.replace(/^[^|]+\|\s*/, "").trim();
     // Lyhennä kuvaus 200 merkkiin
     if (description.length > 200) description = description.slice(0, 200) + "...";
     if (title) items.push({ title, description });
