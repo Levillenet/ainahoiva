@@ -392,6 +392,7 @@ Deno.serve(async (req) => {
             weather_hint: weather?.hint || "",
             daily_topic: daily.topic,
             daily_topic_prompt: daily.prompt,
+            now: nowStr,
           },
         },
       }),
