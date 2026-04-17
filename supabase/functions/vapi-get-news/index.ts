@@ -5,6 +5,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type Category = "headlines" | "kotimaa" | "ulkomaat" | "urheilu";
+
+// Yle RSS -fiidit kategorioittain (avoimia, ei API-avainta)
+const YLE_FEEDS: Record<Category, { url: string; name: string; label: string }[]> = {
+  headlines: [
+    { url: "https://feeds.yle.fi/uutiset/v1/majorHeadlines/YLE_UUTISET.rss", name: "Yle", label: "pääuutiset" },
+    // Fallback HS jos Yle ei vastaa
+    { url: "https://www.hs.fi/rss/kotimaa.xml", name: "Helsingin Sanomat", label: "pääuutiset" },
+    { url: "https://www.hs.fi/rss/tuoreimmat.xml", name: "Helsingin Sanomat", label: "pääuutiset" },
+  ],
+  kotimaa: [
+    { url: "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=18-34953", name: "Yle", label: "kotimaan uutiset" },
+  ],
+  ulkomaat: [
+    { url: "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=18-34952", name: "Yle", label: "ulkomaiden uutiset" },
+  ],
+  urheilu: [
+    { url: "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_URHEILU", name: "Yle", label: "urheilu-uutiset" },
+  ],
+};
+
 // Yksinkertainen RSS-XML-parseri (otsikko + kuvaus)
 function parseRssItems(xml: string, max = 2): { title: string; description: string }[] {
   const items: { title: string; description: string }[] = [];
@@ -15,55 +36,83 @@ function parseRssItems(xml: string, max = 2): { title: string; description: stri
     const descMatch = block.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
     let title = (titleMatch?.[1] || "").replace(/<[^>]+>/g, "").trim();
     let description = (descMatch?.[1] || "").replace(/<[^>]+>/g, "").trim();
-    // Siivoa HS:n osasto-prefixit kuten "Parhaita timanttijuttuja |"
+    // Siivoa osasto-prefixit kuten "Parhaita timanttijuttuja |"
     title = title.replace(/^[^|]+\|\s*/, "").trim();
-    // Lyhennä kuvaus 200 merkkiin
     if (description.length > 200) description = description.slice(0, 200) + "...";
     if (title) items.push({ title, description });
   }
   return items;
 }
 
-async function fetchNews(): Promise<{ source: string; items: { title: string; description: string }[] } | null> {
-  // 1. Yritä Helsingin Sanomien Kotimaa-RSS:ää
-  const sources: { url: string; name: string }[] = [
-    { url: "https://www.hs.fi/rss/kotimaa.xml", name: "Helsingin Sanomat" },
-    { url: "https://www.hs.fi/rss/tuoreimmat.xml", name: "Helsingin Sanomat" },
-    { url: "https://yle.fi/uutiset/rss/uutiset.rss?osasto=kotimaa", name: "Yle" },
-  ];
+function normalizeCategory(raw: unknown): Category {
+  if (typeof raw !== "string") return "headlines";
+  const v = raw.toLowerCase().trim();
+  if (["kotimaa", "kotimaan", "suomi", "suomesta"].includes(v)) return "kotimaa";
+  if (["ulkomaat", "ulkomaa", "ulkomaiden", "maailma", "maailmalta"].includes(v)) return "ulkomaat";
+  if (["urheilu", "urheilun", "sport", "sports"].includes(v)) return "urheilu";
+  if (["headlines", "paauutiset", "pääuutiset", "uutiset"].includes(v)) return "headlines";
+  return "headlines";
+}
 
+async function fetchNews(category: Category): Promise<{ source: string; label: string; items: { title: string; description: string }[] } | null> {
+  const sources = YLE_FEEDS[category];
   for (const src of sources) {
     try {
       const res = await fetch(src.url, {
         headers: { "User-Agent": "AinaHoiva-NewsBot/1.0" },
       });
       if (!res.ok) {
-        console.log(`[vapi-get-news] ${src.name} failed: ${res.status}`);
+        console.log(`[vapi-get-news] ${src.name} (${category}) failed: ${res.status}`);
         continue;
       }
       const xml = await res.text();
       const items = parseRssItems(xml, 2);
       if (items.length > 0) {
-        console.log(`[vapi-get-news] Got ${items.length} items from ${src.name}`);
-        return { source: src.name, items };
+        console.log(`[vapi-get-news] Got ${items.length} items from ${src.name} (${category})`);
+        return { source: src.name, label: src.label, items };
       }
     } catch (e) {
-      console.error(`[vapi-get-news] ${src.name} error:`, e);
+      console.error(`[vapi-get-news] ${src.name} (${category}) error:`, e);
     }
   }
   return null;
 }
 
-function buildSpeechResponse(news: { source: string; items: { title: string; description: string }[] } | null): string {
+function buildSpeechResponse(
+  category: Category,
+  news: { source: string; label: string; items: { title: string; description: string }[] } | null
+): string {
   if (!news || news.items.length === 0) {
-    return "Pahoittelut, en saanut juuri nyt yhteyttä uutispalveluun. Kokeillaanko myöhemmin?";
+    return `Pahoittelut, en saanut juuri nyt yhteyttä uutispalveluun ${category === "headlines" ? "" : category + "-osastolle "}. Kokeillaanko myöhemmin?`;
   }
-  const intro = `Tässä päivän pääuutiset ${news.source}ista. `;
+  const intro = `Tässä päivän ${news.label} ${news.source}ista. `;
   const lines = news.items.map((it, i) => {
     const num = i === 0 ? "Ensimmäinen" : "Toinen";
-    return `${num} uutinen: ${it.title}. ${it.description}`;
+    return `${num} uutinen: ${it.title}.${it.description ? " " + it.description : ""}`;
   });
   return intro + lines.join(" ") + " Haluatteko kuulla jotain muuta?";
+}
+
+function extractCategoryFromBody(body: any): Category {
+  // Vapi tool call: message.toolCallList[].function.arguments.category
+  const toolCalls = body?.message?.toolCallList || body?.message?.toolCalls;
+  if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+    const args = toolCalls[0]?.function?.arguments;
+    if (args) {
+      if (typeof args === "string") {
+        try {
+          const parsed = JSON.parse(args);
+          return normalizeCategory(parsed?.category);
+        } catch {
+          /* ignore */
+        }
+      } else if (typeof args === "object") {
+        return normalizeCategory((args as any).category);
+      }
+    }
+  }
+  // Suora kutsu testausta varten
+  return normalizeCategory(body?.category);
 }
 
 serve(async (req) => {
@@ -72,16 +121,18 @@ serve(async (req) => {
   }
 
   try {
-    // Vapi tool call -muoto: { message: { toolCalls: [{ id, function: { arguments: {} } }] } }
     let body: any = null;
     try {
       body = await req.json();
     } catch {
-      // ei body — palauta uutiset suoraan tekstinä testausta varten
+      // ei body
     }
 
-    const news = await fetchNews();
-    const result = buildSpeechResponse(news);
+    const category = extractCategoryFromBody(body);
+    console.log(`[vapi-get-news] Category requested: ${category}`);
+
+    const news = await fetchNews(category);
+    const result = buildSpeechResponse(category, news);
 
     // Vapi-tool-vastaus
     const toolCalls = body?.message?.toolCallList || body?.message?.toolCalls;
@@ -96,8 +147,7 @@ serve(async (req) => {
       });
     }
 
-    // Fallback: tavallinen JSON-vastaus
-    return new Response(JSON.stringify({ result, news }), {
+    return new Response(JSON.stringify({ result, category, news }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
