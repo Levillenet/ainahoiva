@@ -1,64 +1,48 @@
 
 
-User wants to expand news with Yle RSS feeds covering: kotimaa, ulkomaat, urheilu — plus general headlines. Aina should offer category, then read.
+User wants a single, specific addition to `STATIC_ASSISTANT_CONFIG` in `supabase/functions/vapi-assistant-request/index.ts` — adding a `startSpeakingPlan` block right after `analysisPlan`, then deploying the function.
 
-Yle RSS feeds (known to exist):
-- Pääuutiset: `https://feeds.yle.fi/uutiset/v1/majorHeadlines/YLE_UUTISET.rss`
-- Tuoreimmat: `https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET`
-- Kotimaa: `https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=18-34953`
-- Ulkomaat: `https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=18-34952`
-- Urheilu: `https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_URHEILU`
+This is a trivial, well-specified edit. No clarification needed. I just need to confirm the location exists.
 
-Plan: extend existing `vapi-get-news` with category param. Update Vapi tool schema and prompt.
+## Suunnitelma: Lisää `startSpeakingPlan` Vapi-assistenttiin
 
-## Suunnitelma: Laajennettu uutispalvelu Ylen RSS-fiideillä
+### Muutos
 
-### Yle RSS -fiidit (kaikki avoimia, ei API-avainta)
+**`supabase/functions/vapi-assistant-request/index.ts`**
 
-```text
-Pääuutiset:  https://feeds.yle.fi/uutiset/v1/majorHeadlines/YLE_UUTISET.rss
-Kotimaa:     https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=18-34953
-Ulkomaat:    https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=18-34952
-Urheilu:     https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_URHEILU
+Lisätään `STATIC_ASSISTANT_CONFIG`-olion sisään, heti `analysisPlan`-lohkon jälkeen:
+
+```typescript
+startSpeakingPlan: {
+  waitSeconds: 0.4,
+  smartEndpointingEnabled: false,
+  transcriptionEndpointingPlan: {
+    onPunctuationSeconds: 0.4,
+    onNoPunctuationSeconds: 1.5,
+    onNumberSeconds: 0.5,
+  },
+},
 ```
-
-HS-fiidi säilytetään fallbackina pääuutisille.
-
-### Muutokset
-
-**`supabase/functions/vapi-get-news/index.ts` — laajennus**
-- Lisätään `category`-parametri tool-kutsuun: `"headlines" | "kotimaa" | "ulkomaat" | "urheilu"` (oletus: `"headlines"`)
-- Mappays kategoria → RSS-URL
-- Palautetaan 2 otsikkoa + kuvaus, kuten nyt
-- Yli 30 minuutin ikäiset urheilutulokset OK — ei suodatusta iän mukaan
-- Säilytetään HS-fallback vain pääuutisille (muut kategoriat: jos Yle ei vastaa → kerrotaan luonnollinen virheviesti)
-
-**`supabase/functions/vapi-assistant-request/index.ts` + `outbound-call/index.ts`**
-- Päivitetään `read_news`-toolin parametriskeema: lisätään `category`-enum
-- Päivitetään system prompt: Aina voi tarjota: *"Haluaisitteko kuulla pääuutiset, kotimaan, ulkomaiden vai urheilun uutiset?"*
-- Jos asiakas sanoo esim. "kerrohan ulkomaan uutiset" → Aina kutsuu toolia `category: "ulkomaat"`
-- Aina tunnistaa myös puhekieliset variantit: "maailmalta" → ulkomaat, "Suomesta" → kotimaa, "miten meidän joukkue pärjäsi" → urheilu
 
 ### Vaikutus
 
 ```text
-Ennen:  Aina lukee aina 2 HS:n kotimaan uutista
-Jälkeen: Asiakas voi pyytää: pääuutiset / kotimaa / ulkomaat / urheilu
-        Aina valitsee oikean Yle RSS:n ja lukee 2 tuoretta otsikkoa
+Aina odottaa 0.4 s ennen vastausta (ennen oletusarvo)
+Päätemerkin jälkeen:        0.4 s  → nopea vastaus selkeisiin lauseisiin
+Ilman päätemerkkiä:         1.5 s  → ikäihminen ehtii miettiä
+Numeron jälkeen:            0.5 s  → estää keskeyttämästä esim. "klo 8..."
+Smart endpointing pois     → ennustettavampi käytös vanhusten hitaammalle puheelle
 ```
+
+### Käyttöönotto
+
+1. Muokataan `vapi-assistant-request/index.ts`
+2. Deployataan funktio
 
 ### Tiedostot
 
 ```text
 MUOKATAAN:
-  supabase/functions/vapi-get-news/index.ts          — category-parametri + 4 RSS-mappausta
-  supabase/functions/vapi-assistant-request/index.ts — read_news-toolin schema + prompt
-  supabase/functions/outbound-call/index.ts          — sama tool-päivitys
+  supabase/functions/vapi-assistant-request/index.ts   — startSpeakingPlan-lohko
 ```
-
-### Huomiot
-
-- Ei uusia salaisuuksia eikä rekisteröitymistä — kaikki Ylen fiidit ovat avoimia
-- Vanha käytös toimii edelleen: jos `category` puuttuu → palautetaan pääuutiset
-- HS säilyy varafiidinä pääuutisille luotettavuuden vuoksi
 
