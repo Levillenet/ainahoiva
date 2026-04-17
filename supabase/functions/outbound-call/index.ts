@@ -11,8 +11,19 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
+// Helsinki local hour — handles DST automatically (EET/EEST)
+function getHelsinkiHour(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const hourStr = parts.find((p) => p.type === "hour")?.value ?? "0";
+  return parseInt(hourStr, 10) % 24;
+}
+
 function getTimeOfDay(): string {
-  const hour = (new Date().getUTCHours() + 3) % 24;
+  const hour = getHelsinkiHour();
   if (hour >= 5 && hour < 11) return "huomenta";
   if (hour >= 11 && hour < 17) return "päivää";
   if (hour >= 17 && hour < 22) return "iltaa";
