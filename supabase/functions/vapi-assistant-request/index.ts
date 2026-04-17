@@ -604,8 +604,20 @@ serve(async (req) => {
 
     console.log(`[vapi-assistant-request] Recognized: ${elderName} (${elderId})`);
 
-    // Fetch elder data + postal_code in parallel
-    const [elderResult, medsResult, memoriesResult, lastCallsResult] = await Promise.all([
+    // Determine if this is a morning or evening call (Helsinki local hour)
+    const helsinkiHour = (new Date().getUTCHours() + 3) % 24;
+    const isMorningSlot = helsinkiHour < 14; // before 14:00 = morning slot, otherwise evening
+    const callSlotMethods = isMorningSlot
+      ? ["morning_call", "both_calls"]
+      : ["evening_call", "both_calls"];
+
+    // Today's date range in Helsinki for day-reminder lookup
+    const todayHelsinki = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const todayStart = `${todayHelsinki}T00:00:00+03:00`;
+    const todayEnd = `${todayHelsinki}T23:59:59+03:00`;
+
+    // Fetch elder data + postal_code + today's call-embedded reminders in parallel
+    const [elderResult, medsResult, memoriesResult, lastCallsResult, dayRemindersResult] = await Promise.all([
       supabase
         .from("elders")
         .select("postal_code")
@@ -628,6 +640,14 @@ serve(async (req) => {
         .not("ai_summary", "is", null)
         .order("called_at", { ascending: false })
         .limit(3),
+      supabase
+        .from("reminders")
+        .select("id, message, method, remind_at")
+        .eq("elder_id", elderId)
+        .eq("is_sent", false)
+        .in("method", callSlotMethods)
+        .gte("remind_at", todayStart)
+        .lte("remind_at", todayEnd),
     ]);
 
     const postalCode = elderResult.data?.postal_code || null;
