@@ -44,7 +44,7 @@ const ElderDetail = () => {
   const [loading, setLoading] = useState(true);
   const [calling, setCalling] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ full_name: '', phone_number: '' });
+  const [editForm, setEditForm] = useState({ full_name: '', phone_number: '', postal_code: '' });
   const [medDialogOpen, setMedDialogOpen] = useState(false);
   const [medForm, setMedForm] = useState({ name: '', dosage: '', morning: false, noon: false, evening: false, instructions: '' });
   const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
@@ -52,7 +52,7 @@ const ElderDetail = () => {
 
   const startEditing = () => {
     if (!elder) return;
-    setEditForm({ full_name: elder.full_name, phone_number: elder.phone_number });
+    setEditForm({ full_name: elder.full_name, phone_number: elder.phone_number, postal_code: elder.postal_code || '' });
     setEditing(true);
   };
 
@@ -61,11 +61,12 @@ const ElderDetail = () => {
     const { error } = await supabase.from('elders').update({
       full_name: editForm.full_name.trim(),
       phone_number: editForm.phone_number.trim(),
+      postal_code: editForm.postal_code.trim() || null,
     }).eq('id', elder.id);
     if (error) {
       toast({ title: 'Virhe', description: error.message, variant: 'destructive' });
     } else {
-      setElder({ ...elder, full_name: editForm.full_name.trim(), phone_number: editForm.phone_number.trim() });
+      setElder({ ...elder, full_name: editForm.full_name.trim(), phone_number: editForm.phone_number.trim(), postal_code: editForm.postal_code.trim() || null });
       setEditing(false);
       toast({ title: 'Tiedot päivitetty!' });
     }
@@ -230,6 +231,7 @@ const ElderDetail = () => {
             <div className="space-y-2">
               <Input value={editForm.full_name} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} className="bg-muted border-border text-cream font-bold text-xl" placeholder="Nimi" />
               <Input value={editForm.phone_number} onChange={e => setEditForm(f => ({ ...f, phone_number: e.target.value }))} className="bg-muted border-border text-cream" placeholder="+358..." />
+              <Input value={editForm.postal_code} onChange={e => setEditForm(f => ({ ...f, postal_code: e.target.value }))} className="bg-muted border-border text-cream" placeholder="Postinumero (esim. 00100)" />
               <div className="flex gap-2 mt-1">
                 <Button size="sm" onClick={saveEdit} className="bg-sage text-primary-foreground hover:bg-sage/90"><Check className="w-4 h-4 mr-1" /> Tallenna</Button>
                 <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="text-cream"><X className="w-4 h-4 mr-1" /> Peruuta</Button>
@@ -243,7 +245,7 @@ const ElderDetail = () => {
                   <Pencil className="w-4 h-4" />
                 </Button>
               </div>
-              <p className="text-muted-foreground flex items-center gap-2"><Phone className="w-4 h-4" /> {elder.phone_number} {age && `· ${age} vuotta`}</p>
+              <p className="text-muted-foreground flex items-center gap-2"><Phone className="w-4 h-4" /> {elder.phone_number} {age && `· ${age} vuotta`} {elder.postal_code && `· 📍 ${elder.postal_code}`}</p>
             </div>
           )}
         </div>
