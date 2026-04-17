@@ -754,12 +754,13 @@ serve(async (req) => {
       : "Ei muistutuksia tähän puheluun.";
     console.log(`[vapi-assistant-request] Injected ${dayReminders.length} day-reminders into prompt`);
 
-    // Fetch weather + pick daily topic in parallel
-    const weather = await fetchWeather(postalCode);
+    // Fetch weather (time-aware) + pick daily topic
+    const weather = await fetchWeather(postalCode, helsinkiHour);
     const daily = getDailyTopic();
 
     const now = new Date().toLocaleString("fi-FI", { timeZone: "Europe/Helsinki" });
-    const firstMessage = buildOpeningMessage(elderName, isOutboundCall ? "outbound" : "inbound", weather?.hint);
+    // Sää EI tervehdykseen — se mainitaan vain luonnollisesti keskustelussa
+    const firstMessage = buildOpeningMessage(elderName, isOutboundCall ? "outbound" : "inbound");
     const context = buildFullSystemPrompt({
       elder_name: elderName,
       call_type: isOutboundCall ? "scheduled" : "inbound",
