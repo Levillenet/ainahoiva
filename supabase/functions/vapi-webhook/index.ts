@@ -234,6 +234,8 @@ serve(async (req) => {
         console.error("[vapi-webhook] Cognitive assessment failed:", cogErr);
       }
     }
+
+    // Save reminders extracted from conversation
     if (analysis.reminders?.length) {
       console.log(`[vapi-webhook] Saving ${analysis.reminders.length} reminders for elder ${elder.id}`);
       for (const rem of analysis.reminders) {
