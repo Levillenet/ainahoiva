@@ -25,6 +25,7 @@ function buildFullSystemPrompt(vars: {
   medications_evening: string;
   has_dosette: string;
   reminder_message: string;
+  day_reminders: string;
   memories: string;
   last_call: string;
   now: string;
@@ -55,6 +56,10 @@ Dosetti käytössä: ${vars.has_dosette}
 Muistutuksen aihe: ${vars.reminder_message}
 Aiemmat muistot: ${vars.memories}
 Viimeisimmät puhelut (3 viimeisintä): ${vars.last_call}
+
+## Tämän päivän muistutukset omaiselta — TÄRKEÄ
+${vars.day_reminders}
+Mainitse nämä asiat LUONTEVASTI puhelun aikana — älä lue listana, älä kerro että "omainen pyysi muistuttamaan", vaan kuulosta siltä että muistat itse. Esim. "Muistattehan, että Teillä on tänään lääkärin aika kello 14." Yhdistä tarvittaessa useampi asia samaan keskusteluun. Älä unohda yhtäkään.
 
 ## Säätieto (käytä luonnollisesti keskustelussa)
 ${vars.weather}
@@ -599,8 +604,20 @@ serve(async (req) => {
 
     console.log(`[vapi-assistant-request] Recognized: ${elderName} (${elderId})`);
 
-    // Fetch elder data + postal_code in parallel
-    const [elderResult, medsResult, memoriesResult, lastCallsResult] = await Promise.all([
+    // Determine if this is a morning or evening call (Helsinki local hour)
+    const helsinkiHour = (new Date().getUTCHours() + 3) % 24;
+    const isMorningSlot = helsinkiHour < 14; // before 14:00 = morning slot, otherwise evening
+    const callSlotMethods = isMorningSlot
+      ? ["morning_call", "both_calls"]
+      : ["evening_call", "both_calls"];
+
+    // Today's date range in Helsinki for day-reminder lookup
+    const todayHelsinki = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const todayStart = `${todayHelsinki}T00:00:00+03:00`;
+    const todayEnd = `${todayHelsinki}T23:59:59+03:00`;
+
+    // Fetch elder data + postal_code + today's call-embedded reminders in parallel
+    const [elderResult, medsResult, memoriesResult, lastCallsResult, dayRemindersResult] = await Promise.all([
       supabase
         .from("elders")
         .select("postal_code")
@@ -623,6 +640,14 @@ serve(async (req) => {
         .not("ai_summary", "is", null)
         .order("called_at", { ascending: false })
         .limit(3),
+      supabase
+        .from("reminders")
+        .select("id, message, method, remind_at")
+        .eq("elder_id", elderId)
+        .eq("is_sent", false)
+        .in("method", callSlotMethods)
+        .gte("remind_at", todayStart)
+        .lte("remind_at", todayEnd),
     ]);
 
     const postalCode = elderResult.data?.postal_code || null;
@@ -654,6 +679,13 @@ serve(async (req) => {
         ).join("\n")
       : "Ensimmäinen puhelu — ei aiempaa keskustelua";
 
+    // Build today's reminders text (call-embedded)
+    const dayReminders = dayRemindersResult.data || [];
+    const dayRemindersText = dayReminders.length
+      ? dayReminders.map((r: any, i: number) => `${i + 1}. ${r.message}`).join("\n")
+      : "Ei muistutuksia tähän puheluun.";
+    console.log(`[vapi-assistant-request] Injected ${dayReminders.length} day-reminders into prompt`);
+
     // Fetch weather + pick daily topic in parallel
     const weather = await fetchWeather(postalCode);
     const daily = getDailyTopic();
@@ -668,6 +700,7 @@ serve(async (req) => {
       medications_evening: medsEvening,
       has_dosette: hasDosette ? "kyllä" : "ei",
       reminder_message: "",
+      day_reminders: dayRemindersText,
       memories: memoryText,
       last_call: lastCallText,
       now,

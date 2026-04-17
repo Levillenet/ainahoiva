@@ -236,6 +236,37 @@ serve(async (req) => {
       }
     }
 
+    // Mark today's call-embedded reminders as sent (morning_call/evening_call/both_calls)
+    // The assistant prompt was given today's reminders matching this call slot — now that
+    // the call completed with real conversation, mark them done.
+    try {
+      const helsinkiHour = (new Date().getUTCHours() + 3) % 24;
+      const isMorningSlot = helsinkiHour < 14;
+      const callSlotMethods = isMorningSlot
+        ? ["morning_call", "both_calls"]
+        : ["evening_call", "both_calls"];
+      const todayHelsinki = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const todayStart = `${todayHelsinki}T00:00:00+03:00`;
+      const todayEnd = `${todayHelsinki}T23:59:59+03:00`;
+
+      const { data: marked, error: markErr } = await supabase
+        .from("reminders")
+        .update({ is_sent: true })
+        .eq("elder_id", elder.id)
+        .eq("is_sent", false)
+        .in("method", callSlotMethods)
+        .gte("remind_at", todayStart)
+        .lte("remind_at", todayEnd)
+        .select("id");
+      if (markErr) {
+        console.error("[vapi-webhook] Failed to mark day-reminders sent:", markErr);
+      } else if (marked?.length) {
+        console.log(`[vapi-webhook] Marked ${marked.length} call-embedded reminders sent for elder ${elder.id}`);
+      }
+    } catch (e) {
+      console.error("[vapi-webhook] Day-reminder marking error:", e);
+    }
+
     // Emergency detection
     try {
       const emergency = await detectEmergency(transcript, elder.id);
