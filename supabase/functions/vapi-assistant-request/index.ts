@@ -757,7 +757,17 @@ Deno.serve(async (req) => {
     const weather = await fetchWeather(postalCode, helsinkiHour);
     const daily = getDailyTopic();
 
-    const now = new Date().toLocaleString("fi-FI", { timeZone: "Europe/Helsinki" });
+    const now = new Intl.DateTimeFormat("fi-FI", {
+      timeZone: "Europe/Helsinki",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+    console.log(`[vapi-assistant-request] Helsinki now: ${now}`);
     // Sää EI tervehdykseen — se mainitaan vain luonnollisesti keskustelussa
     const firstMessage = buildOpeningMessage(elderName, isOutboundCall ? "outbound" : "inbound");
     const context = buildFullSystemPrompt({
