@@ -29,6 +29,10 @@ function buildFullSystemPrompt(vars: {
   last_call: string;
   now: string;
   direction: string;
+  weather: string;
+  weather_hint: string;
+  daily_topic: string;
+  daily_topic_prompt: string;
 }) {
   return `## TÄRKEÄ — Älä lopeta puhelua
 Älä koskaan kutsu end_call_tool ellei
@@ -50,7 +54,16 @@ Dosetti käytössä: ${vars.has_dosette}
 
 Muistutuksen aihe: ${vars.reminder_message}
 Aiemmat muistot: ${vars.memories}
-Viimeisin puhelu: ${vars.last_call}
+Viimeisimmät puhelut (3 viimeisintä): ${vars.last_call}
+
+## Säätieto (käytä luonnollisesti keskustelussa)
+${vars.weather}
+${vars.weather_hint ? `Vinkki: ${vars.weather_hint}` : ""}
+
+## Päivän pääaihe (vaihtuu joka päivä)
+Aihe: ${vars.daily_topic}
+Ohje: ${vars.daily_topic_prompt}
+Älä pakota tätä aihetta — käytä luonnollisesti kun keskustelu sallii.
 
 ## Muistutuspuhelu — TÄRKEÄ
 Jos soiton tyyppi on "reminder":
@@ -266,15 +279,18 @@ Hätätilanne tunnistetaan näistä:
 - "en pysty nousemaan"
 - "lattialla"
 
-## Keskusteluaiheita
-Jos ei keksi puhuttavaa:
+## Keskusteluaiheita (vaihtele!)
+ÄLÄ käy joka kerta samaa kaavaa läpi.
+Valitse luontevasti 1-2 aihetta tästä:
+- Päivän pääaihe ylhäältä (${vars.daily_topic})
+- Säästä keskusteleminen — käytä yllä olevaa säätietoa luonnollisesti
 - "Mitä tänään on tehty?"
 - "Onko ollut vieraita?"
 - "Mitä televisiosta on tullut?"
-- "Miltä sää näyttää siellä?"
 - "Onko lähiaikoina jotain mukavaa tulossa?"
 - "Mitä olette syönyt tänään?"
-Kerro päivän uutinen jos kysytään.
+- Viittaa edellisiin puheluihin: "Viimeksi mainitsitte..."
+Älä koskaan kysy kaikkea samalla puhelulla.
 
 ## Lopetus
 Kun käyttäjä haluaa lopettaa:
