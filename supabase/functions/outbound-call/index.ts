@@ -346,10 +346,22 @@ Deno.serve(async (req) => {
     // Pick a daily topic
     const daily = getDailyTopic();
 
+    // Helsinki current time string (DST-aware)
+    const nowStr = new Intl.DateTimeFormat("fi-FI", {
+      timeZone: "Europe/Helsinki",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+
     // Sää EI tervehdykseen — se mainitaan vain luonnollisesti keskustelussa
     const firstMessage = buildScheduledFirstMessage(elder.full_name);
 
-    console.log(`[outbound-call] Scheduled call to ${elder.full_name}, topic=${daily.topic}, weather=${weatherSummary}`);
+    console.log(`[outbound-call] Scheduled call to ${elder.full_name}, now=${nowStr}, topic=${daily.topic}, weather=${weatherSummary}`);
 
     const vapiResponse = await fetch("https://api.vapi.ai/call/phone", {
       method: "POST",
