@@ -13,10 +13,15 @@ serve(async (_req) => {
     const now = new Date();
 
     // Find unsent reminders that are due
+    // NOTE: Only handle direct delivery methods (sms/call/both).
+    // morning_call / evening_call / both_calls are injected into the
+    // scheduled morning/evening calls by vapi-assistant-request and
+    // marked is_sent=true by vapi-webhook after the call ends.
     const { data: reminders } = await supabase
       .from("reminders")
       .select("*, elders(full_name, phone_number, is_active)")
       .eq("is_sent", false)
+      .in("method", ["sms", "call", "both"])
       .lte("remind_at", now.toISOString());
 
     if (!reminders?.length) {
