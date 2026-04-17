@@ -5,31 +5,76 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Category = "headlines" | "kotimaa" | "ulkomaat" | "urheilu";
+type Category =
+  | "headlines"
+  | "tuoreimmat"
+  | "kotimaa"
+  | "ulkomaat"
+  | "talous"
+  | "politiikka"
+  | "kulttuuri"
+  | "viihde"
+  | "tiede"
+  | "luonto"
+  | "terveys"
+  | "liikenne"
+  | "urheilu"
+  | "selko";
 
-// Yle RSS -fiidit kategorioittain (avoimia, ei API-avainta)
+// Yle:n viralliset RSS-fiidit (https://yle.fi/uutiset/rss) — kaikki avoimia, ei API-avainta.
+// Kaikki URL:t verifioitu HTTP 200 + sisältö vastaa aihetta (huhtikuu 2026).
+// HUOM: TODO: Sää-ennusteille tulee käyttää FMI Open Data WFS:ää (Yle:llä ei säätietofiidiä).
 const YLE_FEEDS: Record<Category, { url: string; name: string; label: string }[]> = {
   headlines: [
-    { url: "https://feeds.yle.fi/uutiset/v1/majorHeadlines/YLE_UUTISET.rss", name: "Yle", label: "pääuutiset" },
-    // Fallback HS jos Yle ei vastaa
-    { url: "https://www.hs.fi/rss/kotimaa.xml", name: "Helsingin Sanomat", label: "pääuutiset" },
+    { url: "https://yle.fi/rss/uutiset/paauutiset", name: "Yle", label: "pääuutiset" },
+    // Varafiidi jos Yle ei vastaa
     { url: "https://www.hs.fi/rss/tuoreimmat.xml", name: "Helsingin Sanomat", label: "pääuutiset" },
   ],
+  tuoreimmat: [
+    { url: "https://yle.fi/rss/uutiset/tuoreimmat", name: "Yle", label: "tuoreimmat uutiset" },
+  ],
   kotimaa: [
-    { url: "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=18-34953", name: "Yle", label: "kotimaan uutiset" },
+    { url: "https://yle.fi/rss/t/18-34837/fi", name: "Yle", label: "kotimaan uutiset" },
   ],
   ulkomaat: [
-    { url: "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET&concepts=18-34952", name: "Yle", label: "ulkomaiden uutiset" },
+    { url: "https://yle.fi/rss/t/18-34953/fi", name: "Yle", label: "ulkomaiden uutiset" },
+  ],
+  talous: [
+    { url: "https://yle.fi/rss/t/18-19274/fi", name: "Yle", label: "taloususutiset" },
+  ],
+  politiikka: [
+    { url: "https://yle.fi/rss/t/18-38033/fi", name: "Yle", label: "politiikan uutiset" },
+  ],
+  kulttuuri: [
+    { url: "https://yle.fi/rss/t/18-150067/fi", name: "Yle", label: "kulttuuriuutiset" },
+  ],
+  viihde: [
+    { url: "https://yle.fi/rss/t/18-36066/fi", name: "Yle", label: "viihdeuutiset" },
+  ],
+  tiede: [
+    { url: "https://yle.fi/rss/t/18-819/fi", name: "Yle", label: "tiedeuutiset" },
+  ],
+  luonto: [
+    { url: "https://yle.fi/rss/t/18-35354/fi", name: "Yle", label: "luontouutiset" },
+  ],
+  terveys: [
+    { url: "https://yle.fi/rss/t/18-35138/fi", name: "Yle", label: "terveysuutiset" },
+  ],
+  liikenne: [
+    { url: "https://yle.fi/rss/t/18-12/fi", name: "Yle", label: "liikenneuutiset" },
   ],
   urheilu: [
-    { url: "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_URHEILU", name: "Yle", label: "urheilu-uutiset" },
+    { url: "https://yle.fi/rss/urheilu", name: "Yle", label: "urheilu-uutiset" },
+  ],
+  selko: [
+    { url: "https://yle.fi/rss/selkouutiset", name: "Yle", label: "selkouutiset" },
   ],
 };
 
 // Yksinkertainen RSS-XML-parseri (otsikko + kuvaus)
 function parseRssItems(xml: string, max = 2): { title: string; description: string }[] {
   const items: { title: string; description: string }[] = [];
-  const itemRegex = /<item[\s\S]*?<\/item>/gi;
+  const itemRegex = /<item[\s>][\s\S]*?<\/item>/gi;
   const matches = xml.match(itemRegex) || [];
   for (const block of matches.slice(0, max)) {
     const titleMatch = block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
@@ -46,11 +91,41 @@ function parseRssItems(xml: string, max = 2): { title: string; description: stri
 
 function normalizeCategory(raw: unknown): Category {
   if (typeof raw !== "string") return "headlines";
-  const v = raw.toLowerCase().trim();
-  if (["kotimaa", "kotimaan", "suomi", "suomesta"].includes(v)) return "kotimaa";
-  if (["ulkomaat", "ulkomaa", "ulkomaiden", "maailma", "maailmalta"].includes(v)) return "ulkomaat";
-  if (["urheilu", "urheilun", "sport", "sports"].includes(v)) return "urheilu";
-  if (["headlines", "paauutiset", "pääuutiset", "uutiset"].includes(v)) return "headlines";
+  const v = raw
+    .toLowerCase()
+    .trim()
+    .replace(/[äå]/g, "a")
+    .replace(/ö/g, "o");
+
+  // Pääuutiset
+  if (["headlines", "paauutiset", "uutiset", "paivan uutiset"].includes(v)) return "headlines";
+  // Tuoreimmat
+  if (["tuoreimmat", "uusimmat", "viimeisimmat"].includes(v)) return "tuoreimmat";
+  // Kotimaa
+  if (["kotimaa", "kotimaan", "suomi", "suomesta", "kotimaiset"].includes(v)) return "kotimaa";
+  // Ulkomaat
+  if (["ulkomaat", "ulkomaa", "ulkomaiden", "maailma", "maailmalta", "kansainvaliset"].includes(v)) return "ulkomaat";
+  // Talous
+  if (["talous", "talousuutiset", "porssi", "porssi-uutiset", "raha", "raha-asiat", "talouselama"].includes(v)) return "talous";
+  // Politiikka
+  if (["politiikka", "politiikan uutiset", "eduskunta", "hallitus", "puolue"].includes(v)) return "politiikka";
+  // Kulttuuri
+  if (["kulttuuri", "kulttuuriuutiset", "taide", "musiikki", "kirjallisuus", "teatteri"].includes(v)) return "kulttuuri";
+  // Viihde
+  if (["viihde", "viihdeuutiset", "julkkikset", "tv-ohjelmat"].includes(v)) return "viihde";
+  // Tiede
+  if (["tiede", "tiedeuutiset", "tutkimus", "tutkimukset"].includes(v)) return "tiede";
+  // Luonto
+  if (["luonto", "luontouutiset", "ymparisto", "ilmasto", "elaimet"].includes(v)) return "luonto";
+  // Terveys
+  if (["terveys", "terveysuutiset", "sairaudet", "laakkeet", "laaketiede"].includes(v)) return "terveys";
+  // Liikenne
+  if (["liikenne", "liikenneuutiset", "ruuhkat", "tiet", "junat"].includes(v)) return "liikenne";
+  // Urheilu
+  if (["urheilu", "urheilun", "sport", "sports", "urheilu-uutiset", "jaakiekko", "jalkapallo"].includes(v)) return "urheilu";
+  // Selko
+  if (["selko", "selkouutiset", "selkokielinen", "selkokieli"].includes(v)) return "selko";
+
   return "headlines";
 }
 
@@ -60,6 +135,7 @@ async function fetchNews(category: Category): Promise<{ source: string; label: s
     try {
       const res = await fetch(src.url, {
         headers: { "User-Agent": "AinaHoiva-NewsBot/1.0" },
+        redirect: "follow",
       });
       if (!res.ok) {
         console.log(`[vapi-get-news] ${src.name} (${category}) failed: ${res.status}`);
@@ -85,7 +161,9 @@ function buildSpeechResponse(
   if (!news || news.items.length === 0) {
     return `Pahoittelut, en saanut juuri nyt yhteyttä uutispalveluun ${category === "headlines" ? "" : category + "-osastolle "}. Kokeillaanko myöhemmin?`;
   }
-  const intro = `Tässä päivän ${news.label} ${news.source}ista. `;
+  // "Yle" → "Yleltä", "Helsingin Sanomat" → "Helsingin Sanomista"
+  const sourceSpoken = news.source === "Yle" ? "Yleltä" : `${news.source}ista`;
+  const intro = `Tässä päivän ${news.label} ${sourceSpoken}. `;
   const lines = news.items.map((it, i) => {
     const num = i === 0 ? "Ensimmäinen" : "Toinen";
     return `${num} uutinen: ${it.title}.${it.description ? " " + it.description : ""}`;
