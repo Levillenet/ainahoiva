@@ -219,7 +219,21 @@ serve(async (req) => {
       }
     }
 
-    // Save reminders extracted from conversation
+    // Cognitive assessment extraction (subtle — only saves if anything notable or if tracking enabled)
+    if (insertedReport && transcript) {
+      try {
+        const { data: elderRow } = await supabase
+          .from("elders")
+          .select("cognitive_tracking_enabled")
+          .eq("id", elder.id)
+          .maybeSingle();
+        const cogEnabled = elderRow?.cognitive_tracking_enabled ?? false;
+        await extractCognitiveAssessment(transcript, elder.id, insertedReport.id, cogEnabled);
+        console.log("[vapi-webhook] Cognitive assessment completed for elder:", elder.id);
+      } catch (cogErr) {
+        console.error("[vapi-webhook] Cognitive assessment failed:", cogErr);
+      }
+    }
     if (analysis.reminders?.length) {
       console.log(`[vapi-webhook] Saving ${analysis.reminders.length} reminders for elder ${elder.id}`);
       for (const rem of analysis.reminders) {
