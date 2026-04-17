@@ -46,7 +46,7 @@ Lopetussanoja ovat VAIN:
 Pelkkä "hei" tai "joo" EI ole lopetus!
 
 ${vars.direction === "sisääntuleva" ? `Soittaja on ${vars.elder_name}.` : `Soitat vanhukselle nimeltä ${vars.elder_name}.`}
-Nykyinen aika: ${vars.now}
+**Nykyinen aika Suomessa: ${vars.now}** — KÄYTÄ TÄTÄ aikaa kun puhut kellosta tai vuorokaudenajasta. ÄLÄ ARVAA aikaa, ÄLÄ käytä omaa "tämänhetkistä" aikaa. Jos vanhus kysyy paljonko kello on, kerro tarkka aika tästä muuttujasta.
 Soiton tyyppi: ${vars.call_type}
 
 Aamulääkkeet: ${vars.medications_morning}
@@ -452,13 +452,36 @@ async function forwardToWebhook(body: unknown) {
   });
 }
 
-function getGreetingPrefix() {
-  const hour = (new Date().getUTCHours() + 3) % 24;
+// Helsinki local hour — handles DST automatically (EET/EEST)
+function getHelsinkiHour(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const hourStr = parts.find((p) => p.type === "hour")?.value ?? "0";
+  return parseInt(hourStr, 10) % 24;
+}
 
+function getHelsinkiDateString(): string {
+  // YYYY-MM-DD in Helsinki local time
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  return `${y}-${m}-${d}`;
+}
+
+function getGreetingPrefix() {
+  const hour = getHelsinkiHour();
   if (hour >= 5 && hour < 11) return "Hyvää huomenta";
   if (hour >= 11 && hour < 17) return "Hyvää päivää";
   if (hour >= 17 && hour < 22) return "Hyvää iltaa";
-
   return "Hei";
 }
 
@@ -466,7 +489,7 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function buildOpeningMessage(elderName?: string, direction: "inbound" | "outbound" = "inbound", weatherHint?: string) {
+function buildOpeningMessage(elderName?: string, direction: "inbound" | "outbound" = "inbound") {
   const greeting = getGreetingPrefix();
   const firstName = elderName?.split(" ")[0]?.trim();
   const name = firstName ? ` ${firstName}` : "";
@@ -479,8 +502,7 @@ function buildOpeningMessage(elderName?: string, direction: "inbound" | "outboun
       `${greeting}${name}! Aina kysymässä kuulumisia — mitäs siellä?`,
       `Tervehdys${name}! Aina tässä. Onko ollut hyvä päivä?`,
     ];
-    const base = firstName ? pickRandom(variants) : `${greeting}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
-    return weatherHint ? `${base} ${weatherHint}` : base;
+    return firstName ? pickRandom(variants) : `${greeting}! Täällä Aina AinaHoivasta. Mitä Teille kuuluu tänään?`;
   }
 
   // Inbound — vanhus soittaa itse
@@ -509,7 +531,7 @@ function getDailyTopic(): { topic: string; prompt: string } {
 }
 
 // Hae sää Open-Meteosta postinumeron perusteella (Suomi)
-async function fetchWeather(postalCode: string | null): Promise<{ hint: string; summary: string } | null> {
+async function fetchWeather(postalCode: string | null, helsinkiHour: number): Promise<{ hint: string; summary: string } | null> {
   if (!postalCode) return null;
   try {
     const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(postalCode)}&country=FI&count=1`);
@@ -540,16 +562,23 @@ async function fetchWeather(postalCode: string | null): Promise<{ hint: string; 
 
     const nowDesc = describe(codeNow);
     const tomDesc = describe(codeTomorrow);
+    const isDaytime = helsinkiHour >= 8 && helsinkiHour < 17;
+    const isMorningOrDay = helsinkiHour >= 5 && helsinkiHour < 17;
     const isNiceTomorrow = codeTomorrow <= 3 && rainTomorrow < 1 && tMaxTomorrow >= 5;
     const isNiceNow = codeNow <= 3 && tNow >= 5;
 
     let hint = `Täällä on tänään ${nowDesc} ja noin ${tNow} astetta.`;
-    if (isNiceTomorrow) {
-      hint += ` Huomennakin näyttää kauniilta — voisi olla mukava päivä lähteä pienelle kävelylle!`;
-    } else if (isNiceNow) {
+    // Kävelyehdotus VAIN päiväsaikaan
+    if (isDaytime && isNiceNow) {
       hint += ` Olisiko mukava käydä hetki ulkona?`;
-    } else if (codeTomorrow >= 51 && codeTomorrow <= 67) {
+    } else if (isMorningOrDay && isNiceTomorrow) {
+      hint += ` Huomenna näyttää kauniilta — voisi olla mukava päivä lähteä pienelle kävelylle!`;
+    } else if (isMorningOrDay && codeTomorrow >= 51 && codeTomorrow <= 67) {
       hint += ` Huomenna on luvassa sadetta, ehkä parempi pysyä lämpimässä.`;
+    } else if (helsinkiHour >= 17 && helsinkiHour < 22) {
+      hint += ` Toivottavasti olette saanut levätä päivän aikana.`;
+    } else if (helsinkiHour >= 22 || helsinkiHour < 5) {
+      hint += ` Mukavia unia, kun on aika nukahtaa.`;
     }
 
     const summary = `Tänään: ${nowDesc}, ${tNow}°C. Huomenna: ${tomDesc}, ${tMaxTomorrow}°C, sade ${rainTomorrow}mm.`;
@@ -642,16 +671,16 @@ serve(async (req) => {
 
     console.log(`[vapi-assistant-request] Recognized: ${elderName} (${elderId})`);
 
-    // Determine if this is a morning or evening call (Helsinki local hour)
-    const helsinkiHour = (new Date().getUTCHours() + 3) % 24;
-    const isMorningSlot = helsinkiHour < 14; // before 14:00 = morning slot, otherwise evening
+    // Determine if this is a morning or evening call (Helsinki local hour, DST-safe)
+    const helsinkiHour = getHelsinkiHour();
+    const isMorningSlot = helsinkiHour < 14;
     const callSlotMethods = isMorningSlot
       ? ["morning_call", "both_calls"]
       : ["evening_call", "both_calls"];
 
-    // Today's date range in Helsinki for day-reminder lookup
-    const todayHelsinki = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const todayStart = `${todayHelsinki}T00:00:00+03:00`;
+    // Today's date range in Helsinki for day-reminder lookup (DST-safe wide range)
+    const todayHelsinki = getHelsinkiDateString();
+    const todayStart = `${todayHelsinki}T00:00:00+02:00`;
     const todayEnd = `${todayHelsinki}T23:59:59+03:00`;
 
     // Fetch elder data + postal_code + today's call-embedded reminders in parallel
@@ -725,12 +754,13 @@ serve(async (req) => {
       : "Ei muistutuksia tähän puheluun.";
     console.log(`[vapi-assistant-request] Injected ${dayReminders.length} day-reminders into prompt`);
 
-    // Fetch weather + pick daily topic in parallel
-    const weather = await fetchWeather(postalCode);
+    // Fetch weather (time-aware) + pick daily topic
+    const weather = await fetchWeather(postalCode, helsinkiHour);
     const daily = getDailyTopic();
 
     const now = new Date().toLocaleString("fi-FI", { timeZone: "Europe/Helsinki" });
-    const firstMessage = buildOpeningMessage(elderName, isOutboundCall ? "outbound" : "inbound", weather?.hint);
+    // Sää EI tervehdykseen — se mainitaan vain luonnollisesti keskustelussa
+    const firstMessage = buildOpeningMessage(elderName, isOutboundCall ? "outbound" : "inbound");
     const context = buildFullSystemPrompt({
       elder_name: elderName,
       call_type: isOutboundCall ? "scheduled" : "inbound",

@@ -11,8 +11,19 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
+// Helsinki local hour — handles DST automatically (EET/EEST)
+function getHelsinkiHour(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const hourStr = parts.find((p) => p.type === "hour")?.value ?? "0";
+  return parseInt(hourStr, 10) % 24;
+}
+
 function getTimeOfDay(): string {
-  const hour = (new Date().getUTCHours() + 3) % 24;
+  const hour = getHelsinkiHour();
   if (hour >= 5 && hour < 11) return "huomenta";
   if (hour >= 11 && hour < 17) return "päivää";
   if (hour >= 17 && hour < 22) return "iltaa";
@@ -23,7 +34,8 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function buildScheduledFirstMessage(fullName: string, weatherHint: string | null): string {
+function buildScheduledFirstMessage(fullName: string): string {
+  // Tervehdyksessä EI mainita säätä — se mainitaan vain luonnollisesti keskustelussa
   const firstName = fullName.split(" ")[0]?.trim();
   const greet = `Hyvää ${getTimeOfDay()}`;
   const name = firstName ? ` ${firstName}` : "";
@@ -38,11 +50,7 @@ function buildScheduledFirstMessage(fullName: string, weatherHint: string | null
     `Hei${name}, Aina tässä AinaHoivasta! Miten päivä on sujunut?`,
   ];
 
-  const base = pickRandom(variants);
-  if (weatherHint) {
-    return `${base} ${weatherHint}`;
-  }
-  return base;
+  return pickRandom(variants);
 }
 
 // Päivän teema arvotaan päivämäärän pohjalta — sama teema saman päivän aikana
@@ -61,16 +69,14 @@ function getDailyTopic(): { topic: string; prompt: string } {
 }
 
 // Hae sää Open-Meteosta postinumeron perusteella (Suomi)
-async function fetchWeather(postalCode: string | null): Promise<{ hint: string; summary: string } | null> {
+async function fetchWeather(postalCode: string | null, helsinkiHour: number): Promise<{ hint: string; summary: string } | null> {
   if (!postalCode) return null;
   try {
-    // 1. Postinumero -> koordinaatit Open-Meteo geocoding
     const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(postalCode)}&country=FI&count=1`);
     const geo = await geoRes.json();
     const loc = geo?.results?.[0];
     if (!loc) return null;
 
-    // 2. Säätieto + huomisen ennuste
     const wRes = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
       `&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&timezone=Europe%2FHelsinki&forecast_days=2`
@@ -94,16 +100,23 @@ async function fetchWeather(postalCode: string | null): Promise<{ hint: string; 
 
     const nowDesc = describe(codeNow);
     const tomDesc = describe(codeTomorrow);
+    const isDaytime = helsinkiHour >= 8 && helsinkiHour < 17;
+    const isMorningOrDay = helsinkiHour >= 5 && helsinkiHour < 17;
     const isNiceTomorrow = codeTomorrow <= 3 && rainTomorrow < 1 && tMaxTomorrow >= 5;
     const isNiceNow = codeNow <= 3 && tNow >= 5;
 
     let hint = `Täällä on tänään ${nowDesc} ja noin ${tNow} astetta.`;
-    if (isNiceTomorrow) {
-      hint += ` Huomennakin näyttää kauniilta — voisi olla mukava päivä lähteä vaikka pienelle kävelylle!`;
-    } else if (isNiceNow) {
+    // Kävelyehdotus VAIN päiväsaikaan
+    if (isDaytime && isNiceNow) {
       hint += ` Olisiko mukava käydä hetki ulkona?`;
-    } else if (codeTomorrow >= 51 && codeTomorrow <= 67) {
+    } else if (isMorningOrDay && isNiceTomorrow) {
+      hint += ` Huomenna näyttää kauniilta — voisi olla mukava päivä lähteä pienelle kävelylle!`;
+    } else if (isMorningOrDay && codeTomorrow >= 51 && codeTomorrow <= 67) {
       hint += ` Huomenna on luvassa sadetta, ehkä parempi pysyä lämpimässä.`;
+    } else if (helsinkiHour >= 17 && helsinkiHour < 22) {
+      hint += ` Toivottavasti olette saanut levätä päivän aikana.`;
+    } else if (helsinkiHour >= 22 || helsinkiHour < 5) {
+      hint += ` Mukavia unia, kun on aika nukahtaa.`;
     }
 
     const summary = `Tänään: ${nowDesc}, ${tNow}°C. Huomenna: ${tomDesc}, ${tMaxTomorrow}°C, sade ${rainTomorrow}mm.`;
@@ -327,14 +340,15 @@ serve(async (req) => {
         ).join("\n")
       : "Ensimmäinen puhelu — ei aiempaa keskustelua";
 
-    // Fetch weather based on postal code
-    const weather = await fetchWeather(elder.postal_code);
+    // Fetch weather based on postal code (time-aware)
+    const weather = await fetchWeather(elder.postal_code, getHelsinkiHour());
     const weatherSummary = weather?.summary || "Säätietoa ei saatavilla";
 
     // Pick a daily topic
     const daily = getDailyTopic();
 
-    const firstMessage = buildScheduledFirstMessage(elder.full_name, weather?.hint || null);
+    // Sää EI tervehdykseen — se mainitaan vain luonnollisesti keskustelussa
+    const firstMessage = buildScheduledFirstMessage(elder.full_name);
 
     console.log(`[outbound-call] Scheduled call to ${elder.full_name}, topic=${daily.topic}, weather=${weatherSummary}`);
 
