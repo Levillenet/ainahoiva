@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
@@ -8,7 +7,7 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-serve(async (_req) => {
+Deno.serve(async (_req) => {
   try {
     const now = new Date();
 
