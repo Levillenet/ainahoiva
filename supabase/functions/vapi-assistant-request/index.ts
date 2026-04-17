@@ -531,7 +531,7 @@ function getDailyTopic(): { topic: string; prompt: string } {
 }
 
 // Hae sää Open-Meteosta postinumeron perusteella (Suomi)
-async function fetchWeather(postalCode: string | null): Promise<{ hint: string; summary: string } | null> {
+async function fetchWeather(postalCode: string | null, helsinkiHour: number): Promise<{ hint: string; summary: string } | null> {
   if (!postalCode) return null;
   try {
     const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(postalCode)}&country=FI&count=1`);
@@ -562,16 +562,23 @@ async function fetchWeather(postalCode: string | null): Promise<{ hint: string; 
 
     const nowDesc = describe(codeNow);
     const tomDesc = describe(codeTomorrow);
+    const isDaytime = helsinkiHour >= 8 && helsinkiHour < 17;
+    const isMorningOrDay = helsinkiHour >= 5 && helsinkiHour < 17;
     const isNiceTomorrow = codeTomorrow <= 3 && rainTomorrow < 1 && tMaxTomorrow >= 5;
     const isNiceNow = codeNow <= 3 && tNow >= 5;
 
     let hint = `Täällä on tänään ${nowDesc} ja noin ${tNow} astetta.`;
-    if (isNiceTomorrow) {
-      hint += ` Huomennakin näyttää kauniilta — voisi olla mukava päivä lähteä pienelle kävelylle!`;
-    } else if (isNiceNow) {
+    // Kävelyehdotus VAIN päiväsaikaan
+    if (isDaytime && isNiceNow) {
       hint += ` Olisiko mukava käydä hetki ulkona?`;
-    } else if (codeTomorrow >= 51 && codeTomorrow <= 67) {
+    } else if (isMorningOrDay && isNiceTomorrow) {
+      hint += ` Huomenna näyttää kauniilta — voisi olla mukava päivä lähteä pienelle kävelylle!`;
+    } else if (isMorningOrDay && codeTomorrow >= 51 && codeTomorrow <= 67) {
       hint += ` Huomenna on luvassa sadetta, ehkä parempi pysyä lämpimässä.`;
+    } else if (helsinkiHour >= 17 && helsinkiHour < 22) {
+      hint += ` Toivottavasti olette saanut levätä päivän aikana.`;
+    } else if (helsinkiHour >= 22 || helsinkiHour < 5) {
+      hint += ` Mukavia unia, kun on aika nukahtaa.`;
     }
 
     const summary = `Tänään: ${nowDesc}, ${tNow}°C. Huomenna: ${tomDesc}, ${tMaxTomorrow}°C, sade ${rainTomorrow}mm.`;
