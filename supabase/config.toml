@@ -1,1 +1,13 @@
 project_id = "bjsthjvpotfcxgqxtoiy"
+
+[functions.vapi-muistoissa-add-memory]
+verify_jwt = false
+
+[functions.vapi-muistoissa-update-coverage]
+verify_jwt = false
+
+[functions.vapi-muistoissa-save-quote]
+verify_jwt = false
+
+[functions.vapi-muistoissa-save-observation]
+verify_jwt = false
