@@ -1,4 +1,3 @@
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -11,7 +10,6 @@ Deno.serve(async (req) => {
 
   try {
     const vapiApiKey = Deno.env.get("VAPI_API_KEY");
-    const assistantId = Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
     if (!vapiApiKey) {
@@ -21,10 +19,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    const serverUrl = `${supabaseUrl}/functions/v1/vapi-assistant-request`;
+    // Lue assistant-parametri (default: aina)
+    const url = new URL(req.url);
+    const assistantParam = (url.searchParams.get("assistant") || "aina").toLowerCase();
 
+    let assistantId: string | undefined;
+    let webhookPath: string;
+
+    if (assistantParam === "muistoissa") {
+      assistantId = Deno.env.get("VAPI_MUISTOISSA_ASSISTANT_ID");
+      webhookPath = "vapi-muistoissa-webhook";
+    } else {
+      assistantId = Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b";
+      webhookPath = "vapi-assistant-request";
+    }
+
+    if (!assistantId) {
+      return new Response(
+        JSON.stringify({ error: `Assistant ID not configured for: ${assistantParam}` }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const serverUrl = `${supabaseUrl}/functions/v1/${webhookPath}`;
+
+    console.log(`[set-vapi-server-url] assistant=${assistantParam} id=${assistantId}`);
     console.log(`[set-vapi-server-url] Setting serverUrl to: ${serverUrl}`);
-    console.log(`[set-vapi-server-url] Assistant ID: ${assistantId}`);
 
     const response = await fetch(`https://api.vapi.ai/assistant/${assistantId}`, {
       method: "PATCH",
@@ -34,6 +57,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         serverUrl: serverUrl,
+        serverMessages: ["end-of-call-report"],
       }),
     });
 
@@ -47,19 +71,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[set-vapi-server-url] Success! serverUrl set to: ${result.serverUrl}`);
+    console.log(`[set-vapi-server-url] Success! serverUrl=${result.serverUrl}`);
 
-    return new Response(JSON.stringify({
-      success: true,
-      assistantId,
-      serverUrl: result.serverUrl,
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        assistant: assistantParam,
+        assistantId,
+        serverUrl: result.serverUrl,
+        serverMessages: result.serverMessages,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
     console.error("[set-vapi-server-url] Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
