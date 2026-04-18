@@ -1,91 +1,49 @@
 
-**Bugin diagnoosi (käyttäjän puhelu klo 12:00):**
 
-Vanhus kertoi olleensa eilen kävelyllä → Aina ei tiennyt tästä → Aina kysyi vahvistusta toistuvasti → kognitioanalyysi tulkitsi tilanteen niin että VANHUS ei muista kävelyä → tallensi "selkeä huoli". Käyttäjä on oikeassa: oikea käytös olisi ollut "joo, te olitte kävelyllä" + hiljainen muistilappu "kerto kävelystä jota ei ollut aiemmissa muistoissa".
+## Diagnoosi
 
-**Kaksi juurta bugille:**
+**Data EI ole hävinnyt.** Tarkistin tietokannan:
+- Sami: `legacy_profile` tallessa, `onboarding_completed=true`, `legacy_subscriptions.status='active'`, 15 `coverage_map`-riviä.
+- LegacyDashboard listaa Samin oikein "Käynnissä olevat tarinat" -puolelle.
 
-1. **`extractMemories` ei tallenna konkreettisia tapahtumia ajalla**. Edellisten puheluiden muistot ovat sumeita ("Pitää kävelylenkkejä virkistävinä"), eivät tarkkoja faktoja ("17.4.2026: oli kävelyllä Lauttasaaressa"). Niinpä Aina ei voi seuraavana päivänä viitata "eiliseen kävelyyn".
+**Oikea ongelma — UX-aukko:**
 
-2. **Cognitive assessment -prompti on yksipuolinen**. Se ei pyri erottamaan: johtuiko muistivirhe vanhuksesta vai Ainasta? Se merkitsee vanhuksen huolestuneeksi vaikka oikeasti vanhus muisti — Aina ei muistanut.
+Kun käyttäjä tallentaa onboardingin ja käy sitten päävalikosta **"Vanhukset" → Sami**, hän päätyy `ElderDetail`-sivulle joka on hoivapalvelun perusnäkymä (puhelut, lääkkeet, tunteet) — siellä **ei ole mitään mainintaa** Muistoissa-tilauksesta tai linkkiä Muistoissa-näkymään. Käyttäjä luulee että data on poissa.
 
-3. **Aina-prompti ei kannusta vahvistamaan vanhuksen omaa kertomaa**. Kun vanhus sanoo "olin kävelyllä eilen", Ainan oikea käytös on hyväksyä se ja kysyä jatkokysymys, ei pyytää toistoa.
+Lisäksi: jos käyttäjä klikkaa "Aloita Muistoissa" toistamiseen jollekin vanhukselle joka jo on tilattu, hän päätyy onboardingiin ilman varoitusta — toinen sekoittava polku.
 
----
+## Korjaussuunnitelma — 2 pientä muutosta
 
-**KORJAUSEHDOTUS — kolme tiedostoa**
+### 1. `src/pages/ElderDetail.tsx` — lisää Muistoissa-tilakortti
 
-### 1. `supabase/functions/vapi-webhook/index.ts` — `extractMemories`
+Lisää sivun yläosaan (esim. heti otsikon alle) pieni kortti joka näkyy **vain jos** `legacy_subscriptions.status === 'active'` kyseiselle vanhukselle:
 
-Päivitetään prompti niin että:
-- Pyytää AINA poimimaan tarkat **päivätyt tapahtumat** (`event`-tyyppi sisältää päivämäärän)
-- Lisää uusi tyyppi `daily_activity` jonka contentissa on muoto: `"YYYY-MM-DD: kävi kävelyllä"` 
-- Esimerkit promptissa näyttävät päivämäärää sisältäviä rivejä
-- `extractMemories`-funktio injektoi puhelun päivämäärän (Helsinki-aika) promptiin, jotta AI tietää mihin "tänään" viittaa
-
-### 2. `supabase/functions/vapi-assistant-request/index.ts` — kontekstin rakennus + Aina-prompti
-
-A. **Erotellaan muistot tyypeittäin systeemipromptissa**:
 ```
-Vanhuksen taustamuistot: [person/health/preference/family]
-Viime päivien tapahtumat (KÄYTÄ NÄITÄ jos vanhus viittaa eiliseen): 
-  17.4.2026: kävi kävelyllä
-  16.4.2026: tytär soitti
-```
-Haetaan `event` ja `daily_activity` -tyypit erikseen, viim. 7 päivän ajalta, ja näytetään päivämäärillä.
-
-B. **Lisätään uusi sääntö Aina-prompttiin** (heti `## Muisti` -osion jälkeen):
-```
-## TÄRKEÄ — Vahvista vanhuksen kertomaa
-Jos vanhus mainitsee tehneensä jotain (kävelyllä, vieraita, syönyt 
-jotain), USKO HÄNTÄ vaikket itse muistaisi sitä. Sano esim. 
-"Aivan, kerroittehan siitä kävelystä" tai "Mukava kuulla!" — älä 
-KOSKAAN pyydä vahvistusta toistuvasti tyyliin "Oletteko varma?" 
-tai "Olitteko todella?". Toistuva varmistelu hämmentää vanhusta 
-ja saattaa saada hänet epäilemään omaa muistiaan.
-
-Jos asia on uusi sinulle, tallenna se hiljaa add_memory-toolilla 
-tyypillä "event" — älä paljasta että et muistanut.
+┌──────────────────────────────────────────────┐
+│ 📖 Aina Muistoissa — aktiivinen              │
+│ Edistymä 12% · Arvioitu valmistuminen 4/2027 │
+│                          [ Avaa Muistoissa → ]│
+└──────────────────────────────────────────────┘
 ```
 
-### 3. `supabase/functions/vapi-webhook/index.ts` — `extractCognitiveAssessment`
+Linkki vie `/dashboard/muistoissa/${elderId}`. Tämä yhdistää kaksi näkymää ja näyttää käyttäjälle ettei mitään ole hävinnyt.
 
-Päivitetään prompti niin että se EROTTAA vanhuksen ja assistentin virheet:
-```
-TÄRKEÄ EROTUS:
-- Jos VANHUS unohtaa oman tekemisensä → memory-merkintä
-- Jos AINA (assistentti) ei muista mitä vanhus on aiemmin 
-  kertonut, ja vanhus joutuu toistamaan → TÄMÄ EI OLE vanhuksen 
-  ongelma, vaan assistentin. Älä pisteytä vanhusta tästä.
-- Jos vanhus toistuvasti vahvistaa Ainan kysymyksiä ("joo olin", 
-  "joo tein") → tämä on assistentin huono kuuntelu, ei vanhuksen 
-  muistivika.
+### 2. `src/pages/legacy/LegacyOnboarding.tsx` — varmista ettei onboardingiin pääse uudelleen
 
-Pisteytä vain selkeät vanhuksen kognitiiviset signaalit:
-- Sekava aikaorientaatio (väärä vuosi, kuukausi)
-- Sananhakuvaikeudet 
-- Ymmärtämättömyys peruskysymyksiin
-- Saman kysymyksen toistaminen useita kertoja
-```
+Lisää `useEffect` joka komponentin latautuessa tarkistaa `legacy_profile.onboarding_completed`-tilan ja **ohjaa suoraan** `/dashboard/muistoissa/${elderId}`-sivulle jos tilaus on jo tehty. Näin estetään uudelleentäyttöyritykset (joista käyttäjä saattaisi tulkita että edellinen data hävisi).
 
-Lisäksi: jos `cognitiveEnabled === false` ja `overall_impression !== "selkeä huoli"`, **ei tallenneta** (jo nykyäänkin osittain — varmistetaan logiikka).
+### (Valinnainen) 3. Pieni leivänmurupolku LegacyElderView'iin
 
----
+Lisää LegacyElderView'iin vasemman yläkulman "Takaisin"-linkin viereen lisälinkki "→ Vanhuksen perustiedot" joka vie `ElderDetail`-sivulle. Auttaa navigoimaan kahden näkymän välillä.
 
-**Korjataanko myös virheellinen 18.4. klo 12:00 -arvio?**
+## Tiedostot
 
-`cognitive_assessments`-tauluun jäi virheellinen "selkeä huoli" -rivi (id-puhelu `03f228b8...`). Voin poistaa sen migration-käytön sijaan suoraan delete-kyselyllä, JOS käyttäjä haluaa siivota historian. Suosittelen poistoa, koska se vaikuttaa CognitiveAlertBanner-komponentin näkymään etusivulla.
-
----
-
-**Tiedostot:**
 ```text
 MUOKATAAN:
-  supabase/functions/vapi-webhook/index.ts        (extractMemories + extractCognitiveAssessment promptit)
-  supabase/functions/vapi-assistant-request/index.ts  (kontekstin haku + Aina-prompti)
-
-DATA (käyttäjän hyväksynnällä):
-  DELETE cognitive_assessments WHERE id = '...'   (virheellinen "selkeä huoli" -arvio 18.4.)
+  src/pages/ElderDetail.tsx                     (Muistoissa-tilakortti yläosaan)
+  src/pages/legacy/LegacyOnboarding.tsx         (redirect jos jo tehty)
+  src/pages/legacy/LegacyElderView.tsx          (linkki perustietoihin — valinnainen)
 ```
 
-Ei skeemamuutoksia, ei uusia funktioita, ei UI-muutoksia. Korjaus vaikuttaa heti seuraavasta puhelusta.
+Ei skeemamuutoksia, ei datan korjausta — Samin tiedot ovat jo oikein tallessa.
+
