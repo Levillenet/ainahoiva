@@ -70,7 +70,7 @@ const LegacyDashboard = () => {
     setElders(list);
 
     const subscribedIds = list
-      .filter((e) => (e.legacy_subscriptions?.length ?? 0) > 0)
+      .filter((e) => getSubscription(e) !== null)
       .map((e) => e.id);
 
     if (subscribedIds.length) {
@@ -343,8 +343,8 @@ const LegacyDashboard = () => {
     }
   };
 
-  const subscribed = elders.filter((e) => (e.legacy_subscriptions?.length ?? 0) > 0);
-  const available = elders.filter((e) => (e.legacy_subscriptions?.length ?? 0) === 0);
+  const subscribed = elders.filter((e) => getSubscription(e) !== null);
+  const available = elders.filter((e) => getSubscription(e) === null);
 
   if (loading) {
     return <div className="text-cream/60">Ladataan…</div>;
@@ -408,8 +408,8 @@ const LegacyDashboard = () => {
           <h2 className="text-lg font-medium text-cream mb-3">Käynnissä olevat tarinat</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {subscribed.map((e) => {
-              const sub = e.legacy_subscriptions![0];
-              const age = calcAge(e.legacy_profile?.[0]?.birth_year);
+              const sub = getSubscription(e)!;
+              const age = calcAge(getBirthYear(e));
               const pct = coverageByElder[e.id] ?? 0;
               const lastCall = e.call_reports?.[0]?.called_at;
               const target = sub.target_completion_date
