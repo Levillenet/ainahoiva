@@ -11,8 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ArrowLeft, Plus, Trash2, Save, User, BookOpen } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, User, BookOpen, BookText } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { BOOK_FORMATS, type BookFormat } from '@/lib/bookProgress';
 
 const schema = z.object({
   // Elders-tiedot
@@ -52,6 +53,7 @@ const LegacyEdit = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [bookFormat, setBookFormat] = useState<BookFormat>('book');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -93,11 +95,14 @@ const LegacyEdit = () => {
     if (!elderId) return;
     let cancelled = false;
     (async () => {
-      const [{ data: elder }, { data: profile }] = await Promise.all([
+      const [{ data: elder }, { data: profile }, { data: sub }] = await Promise.all([
         supabase.from('elders').select('full_name, phone_number, date_of_birth, address, postal_code').eq('id', elderId).maybeSingle(),
         supabase.from('legacy_profile').select('*').eq('elder_id', elderId).maybeSingle(),
+        supabase.from('legacy_subscriptions').select('book_format').eq('elder_id', elderId).maybeSingle(),
       ]);
       if (cancelled) return;
+      const subFormat = (sub as { book_format?: string } | null)?.book_format;
+      if (subFormat === 'book' || subFormat === 'novella') setBookFormat(subFormat);
 
       const spouse = (profile?.spouse_info ?? null) as { name?: string; status?: string } | null;
       const parents = (profile?.parents_info ?? null) as { mother?: { name?: string; note?: string }; father?: { name?: string; note?: string }; siblings?: string } | null;
