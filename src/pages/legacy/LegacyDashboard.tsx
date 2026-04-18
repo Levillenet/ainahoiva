@@ -76,19 +76,49 @@ const LegacyDashboard = () => {
       .map((e) => e.id);
 
     if (subscribedIds.length) {
-      const { data: cov } = await supabase
-        .from('coverage_map')
-        .select('elder_id, depth_score')
-        .in('elder_id', subscribedIds);
-      const map: Record<string, { sum: number; count: number }> = {};
-      (cov ?? []).forEach((r: { elder_id: string; depth_score: number | null }) => {
-        if (!map[r.elder_id]) map[r.elder_id] = { sum: 0, count: 0 };
-        map[r.elder_id].sum += r.depth_score ?? 0;
-        map[r.elder_id].count += 1;
+      const [{ data: cov }, { data: chapters }, { data: subs }] = await Promise.all([
+        supabase.from('coverage_map').select('elder_id, life_stage, depth_score, status').in('elder_id', subscribedIds),
+        supabase.from('book_chapters').select('elder_id, life_stage, word_count, target_word_count, status, included_in_novella').in('elder_id', subscribedIds),
+        supabase.from('legacy_subscriptions').select('elder_id, book_format').in('elder_id', subscribedIds),
+      ]);
+
+      const formatByElder: Record<string, BookFormat> = {};
+      (subs ?? []).forEach((s: { elder_id: string; book_format: string | null }) => {
+        formatByElder[s.elder_id] = (s.book_format as BookFormat) || 'book';
       });
+
+      const chaptersByElder: Record<string, Array<{ life_stage: string; word_count: number; target_word_count: number; status: string; included_in_novella: boolean }>> = {};
+      (chapters ?? []).forEach((c) => {
+        const row = c as { elder_id: string; life_stage: string; word_count: number | null; target_word_count: number | null; status: string | null; included_in_novella: boolean | null };
+        if (!chaptersByElder[row.elder_id]) chaptersByElder[row.elder_id] = [];
+        chaptersByElder[row.elder_id].push({
+          life_stage: row.life_stage,
+          word_count: row.word_count || 0,
+          target_word_count: row.target_word_count || 3300,
+          status: row.status || 'empty',
+          included_in_novella: row.included_in_novella || false,
+        });
+      });
+
+      const coverageByElderRaw: Record<string, Array<{ life_stage: string; depth_score: number; status: string }>> = {};
+      (cov ?? []).forEach((r) => {
+        const row = r as { elder_id: string; life_stage: string; depth_score: number | null; status: string | null };
+        if (!coverageByElderRaw[row.elder_id]) coverageByElderRaw[row.elder_id] = [];
+        coverageByElderRaw[row.elder_id].push({
+          life_stage: row.life_stage,
+          depth_score: row.depth_score ?? 0,
+          status: row.status ?? 'not_started',
+        });
+      });
+
       const pct: Record<string, number> = {};
-      Object.entries(map).forEach(([id, v]) => {
-        pct[id] = v.count ? Math.round(v.sum / v.count) : 0;
+      subscribedIds.forEach((id) => {
+        const progress = calculateBookProgress(
+          chaptersByElder[id] ?? [],
+          coverageByElderRaw[id] ?? [],
+          formatByElder[id] ?? 'book',
+        );
+        pct[id] = progress.overallPercent;
       });
       setCoverageByElder(pct);
     } else {
