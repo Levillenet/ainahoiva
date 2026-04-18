@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2, PenLine, History } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 type ChapterStatus = 'empty' | 'draft' | 'reviewed' | 'final';
@@ -37,6 +37,15 @@ type UnprocessedCall = {
   transcript_length: number;
 };
 
+type Revision = {
+  id: string;
+  created_at: string;
+  word_count: number | null;
+  ai_model_used: string | null;
+  change_reason: string | null;
+  created_by_ai: boolean | null;
+};
+
 const STATUS_LABELS: Record<ChapterStatus, { label: string; className: string }> = {
   empty: { label: 'Ei vielä aloitettu', className: 'bg-muted text-muted-foreground border-border' },
   draft: { label: 'Luonnos', className: 'bg-amber-900/30 text-amber-200 border-amber-800/50' },
@@ -53,6 +62,8 @@ export default function LegacyBookView() {
   const [loading, setLoading] = useState(true);
   const [unprocessedCalls, setUnprocessedCalls] = useState<UnprocessedCall[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [revisions, setRevisions] = useState<Revision[]>([]);
 
   const loadAll = async () => {
     if (!elderId) return;
@@ -110,6 +121,22 @@ export default function LegacyBookView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elderId]);
 
+  useEffect(() => {
+    if (!selectedChapter) {
+      setRevisions([]);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from('chapter_revisions')
+        .select('id, created_at, word_count, ai_model_used, change_reason, created_by_ai')
+        .eq('chapter_id', selectedChapter.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (data) setRevisions(data as Revision[]);
+    })();
+  }, [selectedChapter]);
+
   const processCall = async (callId: string) => {
     setProcessing(callId);
     try {
@@ -130,6 +157,38 @@ export default function LegacyBookView() {
       });
     } finally {
       setProcessing(null);
+    }
+  };
+
+  const generateProse = async () => {
+    if (!selectedChapter) return;
+    const confirmed = confirm(
+      selectedChapter.content_markdown
+        ? `Kirjoitetaanko luku "${selectedChapter.title}" uudelleen proosaksi? Nykyinen versio tallennetaan historiaan.`
+        : `Kirjoitetaanko luku "${selectedChapter.title}" proosaksi?`,
+    );
+    if (!confirmed) return;
+
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('muistoissa-generate-chapter', {
+        body: { chapter_id: selectedChapter.id },
+      });
+      if (error) throw error;
+      const eur = (data.estimated_cost_usd * 0.92).toFixed(3);
+      toast({
+        title: 'Luku kirjoitettu',
+        description: `${data.word_count} sanaa. Kustannus noin ${eur} €.`,
+      });
+      await loadAll();
+    } catch (err) {
+      toast({
+        title: 'Proosan kirjoitus epäonnistui',
+        description: (err as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -349,6 +408,36 @@ export default function LegacyBookView() {
                   </div>
                 )}
 
+                {selectedChapter.content_markdown && (
+                  <div className="flex items-center gap-3 flex-wrap pb-2">
+                    <Button
+                      size="sm"
+                      onClick={generateProse}
+                      disabled={generating}
+                      className="bg-gold/80 hover:bg-gold text-background"
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                          Kirjoitetaan…
+                        </>
+                      ) : (
+                        <>
+                          <PenLine className="w-3 h-3 mr-2" />
+                          {selectedChapter.content_markdown.length > 1000
+                            ? 'Kirjoita uudelleen'
+                            : 'Kirjoita proosaksi'}
+                        </>
+                      )}
+                    </Button>
+                    {generating && (
+                      <span className="text-xs text-cream/50">
+                        Claude Sonnet 4.5 työstää (~30–60 s)
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {selectedChapter.content_markdown ? (
                   <div className="prose prose-invert max-w-none text-cream/90 leading-relaxed whitespace-pre-wrap">
                     {selectedChapter.content_markdown}
@@ -360,6 +449,33 @@ export default function LegacyBookView() {
                       Kirjailija-AI aloittaa luvun kun aiheen puhelumateriaalia on riittävästi
                     </p>
                   </div>
+                )}
+
+                {revisions.length > 0 && (
+                  <details className="mt-6 pt-4 border-t border-border/50">
+                    <summary className="text-sm text-cream/60 cursor-pointer flex items-center gap-2 hover:text-cream">
+                      <History className="w-4 h-4" />
+                      Versiohistoria ({revisions.length})
+                    </summary>
+                    <div className="space-y-2 mt-3">
+                      {revisions.map((rev) => (
+                        <div
+                          key={rev.id}
+                          className="text-xs p-3 rounded-md bg-muted/10 border border-border/50"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-cream/80">
+                              {new Date(rev.created_at).toLocaleString('fi-FI')}
+                            </span>
+                            <span className="text-cream/50">
+                              {rev.word_count ?? 0} sanaa · {rev.ai_model_used || 'ei AI'}
+                            </span>
+                          </div>
+                          <p className="text-cream/60">{rev.change_reason || '—'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 )}
               </div>
             )}

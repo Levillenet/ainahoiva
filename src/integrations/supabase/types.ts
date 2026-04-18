@@ -957,6 +957,48 @@ export type Database = {
           },
         ]
       }
+      nightly_batch_log: {
+        Row: {
+          calls_failed: number | null
+          calls_processed: number | null
+          chapters_failed: number | null
+          chapters_generated: number | null
+          duration_ms: number | null
+          errors: string[] | null
+          estimated_cost_usd: number | null
+          id: string
+          ran_at: string | null
+          total_tokens_in: number | null
+          total_tokens_out: number | null
+        }
+        Insert: {
+          calls_failed?: number | null
+          calls_processed?: number | null
+          chapters_failed?: number | null
+          chapters_generated?: number | null
+          duration_ms?: number | null
+          errors?: string[] | null
+          estimated_cost_usd?: number | null
+          id?: string
+          ran_at?: string | null
+          total_tokens_in?: number | null
+          total_tokens_out?: number | null
+        }
+        Update: {
+          calls_failed?: number | null
+          calls_processed?: number | null
+          chapters_failed?: number | null
+          chapters_generated?: number | null
+          duration_ms?: number | null
+          errors?: string[] | null
+          estimated_cost_usd?: number | null
+          id?: string
+          ran_at?: string | null
+          total_tokens_in?: number | null
+          total_tokens_out?: number | null
+        }
+        Relationships: []
+      }
       profile_summary: {
         Row: {
           created_at: string | null
