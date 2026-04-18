@@ -94,6 +94,7 @@ export type Database = {
           medications_taken: boolean | null
           mood_score: number | null
           mood_source: string | null
+          processed_at: string | null
           transcript: string | null
           vapi_call_id: string | null
         }
@@ -123,6 +124,7 @@ export type Database = {
           medications_taken?: boolean | null
           mood_score?: number | null
           mood_source?: string | null
+          processed_at?: string | null
           transcript?: string | null
           vapi_call_id?: string | null
         }
@@ -152,6 +154,7 @@ export type Database = {
           medications_taken?: boolean | null
           mood_score?: number | null
           mood_source?: string | null
+          processed_at?: string | null
           transcript?: string | null
           vapi_call_id?: string | null
         }
