@@ -24,7 +24,7 @@ const DashboardLayout = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top navbar */}
-      <header className="bg-navy-light border-b border-border px-4 py-3 flex items-center justify-between">
+      <header className="bg-navy-light/80 backdrop-blur-md border-b border-border/60 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-soft">
         <div className="flex items-center gap-6">
           <Link to="/dashboard">
             <Logo size="sm" showTagline={false} />
@@ -34,10 +34,10 @@ const DashboardLayout = () => {
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium transition-all ${
                   (item.to === '/dashboard' ? location.pathname === '/dashboard' : location.pathname.startsWith(item.to))
-                    ? 'bg-muted text-gold'
-                    : 'text-cream/70 hover:text-cream hover:bg-muted/50'
+                    ? 'bg-gradient-warm text-gold shadow-glow'
+                    : 'text-cream/70 hover:text-cream hover:bg-muted/40'
                 }`}
               >
                 <item.icon className="w-4 h-4" />
