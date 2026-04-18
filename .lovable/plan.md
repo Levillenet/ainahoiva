@@ -1,83 +1,42 @@
 
-Käyttäjä on jo rekisteröinyt 4 toolia Vapi-dashboardissa ja antoi täsmälliset spesifikaatiot. Tämä on suoraviivainen toteutus — ei tarvitse selvennystä. Tarkistan vain `vapi-add-memory`-mallin rakenteen lyhyesti varmistaakseni ettei mene päällekkäin.
+Käyttäjä haluaa että asetan Vapi Server URL:n API:n kautta (ei dashboardissa) ja testaan että se toimii. Onneksi projektissa on jo olemassa `set-vapi-server-url`-edge function, mutta se on hardkoodattu vanhalle Aina-assistantille (`c19c2445...`) eikä Muistoissa-assistantille (`b497059c...`). Lisäksi se asettaa väärän serverUrl:n (`vapi-assistant-request` eikä `vapi-muistoissa-webhook`).
 
-Tärkeät havainnot spesifikaatiosta:
-- elderId tulee `call.metadata.elderId` (ei phone-lookup) → yksinkertaisempi kuin nykyinen `vapi-add-memory`
-- Vastaus EI ole `{result: "ok"}` vaan `{results: [{toolCallId, result}]}` (Vapi tool-calls -formaatti)
-- Toolin nimet Vapissa ovat lyhyitä (esim. `save_memory`) — funktion nimi/URL on eri asia
-- `update-coverage`: `depth_score += depth_increment * 10` capattuna 100:aan
-- `save-observation`: type-mapping 5 arvoa → 2 tietokanta-arvoa (`sensitive_topic` / `suggestion` / `milestone`)
-- `save-quote`: `week_start` lasketaan maanantaiksi Helsinki-aikavyöhykkeessä
+## Suunnitelma
 
-## Toteutus — 4 uutta Edge Functionia
+### Vaihe 1: Päivitä `set-vapi-server-url` tukemaan molempia assistantteja
 
-### 1. `supabase/functions/vapi-muistoissa-add-memory/index.ts`
-- Parsii `elderId` metadatasta + argumentit toolCallista
-- Insert `elder_memory` (`elder_id`, `memory_type`, `content`)
-- Jos `event_date` annettu → prefiksoi `content` muotoon `[YYYY-MM-DD] ...`
-- Jos `target_chapter` annettu → upsert `coverage_map` (`life_stage = target_chapter`): `last_discussed = now()`, `questions_asked += 1`
-- Palauttaa `{results: [{toolCallId, result: "Muisto tallennettu..."}]}`
+Muokkaan `supabase/functions/set-vapi-server-url/index.ts` ottamaan query-parametrin `?assistant=muistoissa` tai `?assistant=aina`:
+- `aina` (default): assistant `VAPI_ASSISTANT_ID`, serverUrl → `vapi-assistant-request`
+- `muistoissa`: assistant `VAPI_MUISTOISSA_ASSISTANT_ID`, serverUrl → `vapi-muistoissa-webhook`
 
-### 2. `supabase/functions/vapi-muistoissa-update-coverage/index.ts`
-- Hakee `coverage_map`-rivin `(elder_id, life_stage, theme)` (theme voi olla null)
-- Jos rivi puuttuu → insert; muuten update:
-  - `depth_score = LEAST(100, COALESCE(depth_score,0) + depth_increment * 10)`
-  - `status = annetut`
-  - `last_discussed = now()`
-  - `questions_asked = COALESCE(questions_asked,0) + 1`
-- Tehdään SELECT → laskenta → UPDATE/INSERT (ei raw SQL, käytetään supabase-clientiä)
+Funktio käyttää jo `VAPI_API_KEY`-secretiä joka on olemassa, joten ei tarvita uusia secretejä.
 
-### 3. `supabase/functions/vapi-muistoissa-save-quote/index.ts`
-- Insert `legacy_highlights`: `elder_id`, `quote`, `context`, `target_chapter`, `week_start`
-- `week_start` laskenta:
-  ```ts
-  const nowHelsinki = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Helsinki"}));
-  const day = nowHelsinki.getDay(); // 0=su
-  const offset = day === 0 ? -6 : 1 - day;
-  const monday = new Date(nowHelsinki);
-  monday.setDate(monday.getDate() + offset);
-  const weekStart = monday.toISOString().slice(0,10);
-  ```
+### Vaihe 2: Kutsu funktiota Muistoissa-parametrilla
 
-### 4. `supabase/functions/vapi-muistoissa-save-observation/index.ts`
-- Type-mapping objekti:
-  ```ts
-  const TYPE_MAP = {
-    topic_declined: "sensitive_topic",
-    suggestion_for_family: "suggestion",
-    milestone_reached: "milestone",
-    emotional_moment: "sensitive_topic",
-    unresolved_thread: "suggestion",
-  };
-  ```
-- Insert `legacy_observations`: `elder_id`, `type`, `title`, `description`
+Käytän `supabase--curl_edge_functions`-työkalua kutsumaan `/set-vapi-server-url?assistant=muistoissa` ja varmistan että Vapi-API palauttaa `serverUrl: "https://bjsthjvpotfcxgqxtoiy.supabase.co/functions/v1/vapi-muistoissa-webhook"`.
 
-### Yhteinen rakenne kaikille
-- `import { createClient } from "https://esm.sh/@supabase/supabase-js@2"` (sama kuin `vapi-add-memory`)
-- CORS-headerit (OPTIONS-käsittely)
-- Try/catch — virhe palauttaa `{results: [{toolCallId, error: "..."}]}` 200-statuksella (jotta puhelu ei katkea)
-- `console.log` jokaisessa kriittisessä kohdassa Vapi-dashboardin debugausta varten:
-  - `[muistoissa-X] received:` body
-  - `[muistoissa-X] elderId:` ...
-  - `[muistoissa-X] args:` ...
-  - `[muistoissa-X] db result:` ...
-  - `[muistoissa-X] error:` ...
-- Argumentit voivat tulla joko stringinä (`JSON.parse`) tai objektina — käsitellään molemmat
-- Fallback: jos `elderId` puuttuu metadatasta → palautetaan virhe selkeästi
-- `verify_jwt = false` lisätään `supabase/config.toml`-tiedostoon kaikille neljälle funktiolle (Vapi ei lähetä JWT:tä)
+### Vaihe 3: Varmista myös webhook-tilausten asetukset
 
-### Tiedostot
+Vapi-assistantilla pitää myös olla `serverMessages: ["end-of-call-report"]`. Lisään tämän PATCH-pyyntöön samalla kertaa, jotta `end-of-call-report` -tapahtuma varmasti laukaisee webhookin.
+
+### Vaihe 4: Testikutsu webhookiin
+
+Testaan vielä että `vapi-muistoissa-webhook` itse vastaa (lähetän tyhjän `OPTIONS`-pyynnön + dummy-payloadin jossa `messageType !== "end-of-call-report"`, jolloin pitäisi palauttaa `{ok: true, ignored: ...}`).
+
+## Tiedostot
+
 ```text
-LUODAAN:
-  supabase/functions/vapi-muistoissa-add-memory/index.ts
-  supabase/functions/vapi-muistoissa-update-coverage/index.ts
-  supabase/functions/vapi-muistoissa-save-quote/index.ts
-  supabase/functions/vapi-muistoissa-save-observation/index.ts
-
 MUOKATAAN:
-  supabase/config.toml   (verify_jwt=false neljälle uudelle funktiolle)
+  supabase/functions/set-vapi-server-url/index.ts
+    - Lue ?assistant=muistoissa|aina query-parametri
+    - Valitse oikea assistantId ja serverUrl sen perusteella
+    - PATCH-bodyyn lisätään serverMessages: ["end-of-call-report"]
 ```
 
-Ei skeemamuutoksia — kaikki sarakkeet ovat jo olemassa (`elder_memory`, `coverage_map`, `legacy_highlights`, `legacy_observations`).
+Ei muita muutoksia. Ei skeemamuutoksia. Ei UI-muutoksia.
 
-Ei muutoksia olemassa olevaan `vapi-add-memory`-funktioon — se jää geneerisille hoivapuheluille.
+## Testaus suunnitelman jälkeen
+
+1. Curl: `POST /set-vapi-server-url?assistant=muistoissa` → odotetaan 200 + oikea serverUrl Vapin vastauksessa
+2. Curl: `POST /vapi-muistoissa-webhook` dummy-payloadilla → odotetaan `{ok: true, ignored: ...}`
+3. Käyttäjä voi sen jälkeen tehdä oikean Muistoissa-puhelun ja transcripti tallentuu `call_reports`-tauluun automaattisesti.
