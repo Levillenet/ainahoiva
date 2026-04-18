@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { BookHeart, ArrowRight, Sparkles, FlaskConical, ScrollText } from 'lucide-react';
+import { BookHeart, ArrowRight, Sparkles, FlaskConical, ScrollText, Plus } from 'lucide-react';
 import { calcAge, formatMonthYear, LIFE_STAGES, startOfWeek, toDateString } from '@/lib/legacy';
 import { toast } from '@/hooks/use-toast';
 
@@ -53,6 +53,7 @@ const LegacyDashboard = () => {
   const [coverageByElder, setCoverageByElder] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [seedingMore, setSeedingMore] = useState(false);
 
   const load = async () => {
     // Muistoissa on eri palvelu kuin Hoiva — is_active koskee vain Hoivaa.
@@ -536,6 +537,286 @@ Ritva: Niin.`,
     }
   };
 
+  const seedRitvaMoreData = async () => {
+    setSeedingMore(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      if (!userId) throw new Error('Et ole kirjautunut sisään.');
+
+      const { data: ritva, error: findErr } = await supabase
+        .from('elders')
+        .select('id')
+        .eq('full_name', 'Ritva Mäkinen')
+        .maybeSingle();
+      if (findErr) throw new Error('Vanhuksen haku: ' + findErr.message);
+      if (!ritva?.id) throw new Error('Luo ensin Ritvan perustestidata.');
+      const ritvaId = ritva.id;
+
+      // Lisää muistiinpanoja useammille luvuille → kirjailija voi kirjoittaa enemmän
+      const moreNotes: Array<{ life_stage: string; notes_markdown: string; word_count: number }> = [
+        {
+          life_stage: 'lapsuus',
+          notes_markdown: `FAKTOJA:
+- Syntyi Viipurissa 12.3.1943 keskellä sotaa
+- Asui pienessä puutalossa Karjalankadulla 5
+- Evakkomatka kesällä 1944, Ritva oli vasta yksivuotias — ei muista itse, äiti kertoi
+- Perhe asettui Sysmään, sukulaisten luo, sodan jälkeen muutto Lahteen
+- Aloitti kansakoulun 1950 Lahdessa
+
+ANEKDOOTTEJA:
+- Äiti Maria laittoi joka aamu pikkuiset lettejä jotka pysyivät vain ruokatuntiin asti
+- Isä toi puuverstaalta puulastuja jotka tuoksuivat petäjältä
+- Ritva keräsi kiviä takapihalta — niillä oli nimet ja persoonallisuudet
+- Naapurin Kerttu-täti opetti virkkaamaan kun Ritva oli kuusivuotias
+- Joulu 1948: ainoa lahja oli isän tekemä puinen nukke nimeltä Aino
+
+TUNNELMIA:
+- Lapsuudessa oli aina pulaa, mutta äiti ei näyttänyt sitä
+- Sysmän aika tuntui turvalliselta, koivut järven rannalla muistuivat aina
+- Lahden vuosista jäi mieleen tuoksu: leipää aamulla ja talvella savukaasuja
+
+SUORIA SITAATTEJA:
+- "Pikku piikana, sinun pitää olla reipas" (äiti aamuisin)
+- "Älä lopeta keräämästä, kivet ovat sinun ystäviä" (Kerttu-täti)`,
+          word_count: 195,
+        },
+        {
+          life_stage: 'vanhemmat',
+          notes_markdown: `FAKTOJA:
+- Äiti Maria, syntyi 1912 Viipurissa, kuoli 1989 Lahdessa
+- Isä Jaakko, syntyi 1908 Antreassa, puuseppä, kuoli 1981
+- Vanhemmat tapasivat Viipurissa 1934, naimisiin 1935
+- Eivät puhuneet sodasta tai evakuoinnista juuri koskaan
+- Asuivat Lahdessa Niemenkadulla evakuoinnin jälkeen
+
+ANEKDOOTTEJA:
+- Äiti lauloi virsiä keittiössä leipoessaan
+- Isä teki pihalla pajaan keinun kun Ritva oli neljän — keinui siinä monta kesää
+- Vanhemmat eivät koskaan riidelleet ääneen, mutta välillä isä meni pihalle pilkkomaan puita tunneiksi
+- Äiti opetti Ritvalle ompelua viiden vanhana — ensimmäinen tilkkupeitto oli nukelle
+- Isä antoi Ritvalle ensimmäisen oman puukon kymmenenvuotissyntymäpäivänä
+
+TUNNELMIA:
+- Äiti oli rauhallinen pohja koko perheelle
+- Isä rakasti tytärtään mutta osoitti sen tekoina, ei sanoina
+- Vanhempien hiljaisuus opetti Ritvan kuuntelemaan
+
+SUORIA SITAATTEJA:
+- "Maria oli kuin järven pinta tyynessä — siitä ei nähnyt syvyyttä" (Ritva äidistään)
+- "Isä sanoi vain tarpeellisen, mutta sen sanoi tarkasti"`,
+          word_count: 198,
+        },
+        {
+          life_stage: 'koulu',
+          notes_markdown: `FAKTOJA:
+- Aloitti kansakoulun Lahdessa syksyllä 1950, 7-vuotiaana
+- Opettaja oli neiti Hellevi Korhonen, "tiukka mutta oikeudenmukainen"
+- Ritva kävi 8 vuotta kansakoulua, jatkoi sitten ompelukouluun
+- Ompelukoulu Lahdessa 1958-1961, kolmevuotinen koulutus
+- Valmistui ompelija-kisälliksi keväällä 1961
+
+ANEKDOOTTEJA:
+- Ensimmäisenä koulupäivänä Ritvalla oli äidin tekemä sininen mekko jossa pieni valkoinen kaulus
+- Kerran sai jälki-istuntoa kun puhui käytävällä — Liisa pyysi anteeksi puolesta
+- Matematiikka oli vaikeaa, mutta käsityöt menivät loistavasti
+- Ompelukoulussa opettaja rouva Lehmus sanoi: "Sinusta tulee taitava — sinulla on hiljaiset kädet"
+- Päättötodistuksessa vain yksi kakkonen, matematiikasta
+
+TUNNELMIA:
+- Koulu oli paikka jossa Ritva sai olla rauhassa omien ajatustensa kanssa
+- Käsityöt antoivat ensimmäistä kertaa tunteen että jokin asia osataan oikein
+- Ompelukoulussa Ritva tunsi löytäneensä paikan johon kuului
+
+SUORIA SITAATTEJA:
+- "Sinulla on hiljaiset kädet" (rouva Lehmus ompelukoulussa)
+- "Mä halusin vain valmistua ja tehdä työtä" (Ritva omasta nuoruudestaan)`,
+          word_count: 205,
+        },
+        {
+          life_stage: 'parisuhde',
+          notes_markdown: `FAKTOJA:
+- Tapasi Paavon Elannon ruokalassa Helsingissä 1964
+- Paavo oli 26-vuotias raitiovaununkuljettaja, syntyi Hämeenlinnassa
+- Seurustelivat 2 vuotta, naimisiin syyskuussa 1966
+- Häät pidettiin Töölön kirkossa, juhla Liisan vanhempien luona
+- Asuivat ensin Vallilassa, sitten Käpylässä 1972 alkaen
+- Paavo kuoli sydänkohtaukseen kotona aamukahvilla 14.4.2008
+
+ANEKDOOTTEJA:
+- Paavo kysyi suolasirotinta vain saadakseen tekosyyn puhua Ritvalle
+- Ensimmäinen treffi oli kävely Esplanadilla, Paavolla oli ruskea takki ja sininen lippis
+- Paavo soitti haitaria, etenkin "Karjalan kunnailla"
+- Häämatka oli viikko Tampereella, asuivat hotelli Tammerissa
+- Ritva ja Paavo olivat naimisissa 42 vuotta — ei koskaan nukkuneet eri huoneissa
+
+TUNNELMIA:
+- Paavo oli vastakohta Ritvalle: puhelias, äänekäs, nauroi paljon
+- Heidän hiljaisuutensa yhdessä oli paksua ja lämmintä
+- Paavon kuoleman jälkeen Ritva ei ole asunut kenenkään kanssa
+
+SUORIA SITAATTEJA:
+- "Hän istui samaan pöytään ja kysyi saiko lainata suolasirotinta. Mä katsoin Liisaa ja Liisa mulle. Me tiedettiin että tämä oli se."
+- "Paavo täytti talon äänellä. Nyt talo on hiljainen mutta täynnä häntä."`,
+          word_count: 218,
+        },
+        {
+          life_stage: 'lasten_synty',
+          notes_markdown: `FAKTOJA:
+- Anja syntyi 8.11.1965, Helsingin Naistenklinikalla
+- Tuomo syntyi 22.6.1968, samalla klinikalla
+- Anja oli vauvana rauhallinen, Tuomo äänekäs ja vilkas
+- Ritva jäi äitiyslomalle Anjan synnyttyä, palasi töihin kun lapsi oli 9 kk
+- Naapurin Kaisa-täti hoiti lapsia päivisin Vallilan asunnossa
+
+ANEKDOOTTEJA:
+- Anjan ensimmäinen sana oli "kuu" — osoitti ikkunaan iltaisin
+- Tuomo opetteli kävelemään 10 kk vanhana, ei suostunut konttamaan
+- Paavo otti molemmat lapset kerran raitiovaunulle työpäivän aikana — kaikki kaupungin matkustajat tunsivat Mäkisten lapset
+- Anja itki ensimmäisellä koulupäivällä, Tuomo ei
+- Ritva ompeli lasten kaikki vaatteet kunnes Anja oli 12 — sitten halusi ostovaatteita
+
+TUNNELMIA:
+- Lasten syntymä jakoi elämän kahteen ennen-ja-jälkeen
+- Helpotusta että lapset olivat terveitä — Ritva oli pelännyt eniten sitä
+- Pelko lasten puolesta ei poistunut koskaan, vain muuttui muotoa
+
+SUORIA SITAATTEJA:
+- "Kun Anja syntyi, mä ymmärsin että sydämeni kävelee nyt rinnaltani ulos"
+- "Tuomo hyppäsi maailmaan suoraan juoksemaan"`,
+          word_count: 211,
+        },
+        {
+          life_stage: 'harrastukset',
+          notes_markdown: `FAKTOJA:
+- Suurin harrastus on ollut käsityöt: ompelu, virkkaus, kudonta
+- Ritva on ommellut kaikki Anjan ja Tuomon konfirmaatio- ja häävaatteet
+- Käy edelleen kerran viikossa eläkeläisten käsityökerhossa Käpylässä
+- Toinen harrastus: lukeminen, erityisesti sotaromaaneja ja Mika Waltaria
+- Mökki Karjalohjalla 1978-2010 — myytiin Paavon kuoleman jälkeen
+
+ANEKDOOTTEJA:
+- Ritva on tehnyt yli 30 tilkkupeittoa — yksi joka lapsenlapselle
+- Sinuhe egyptiläinen on luettu seitsemän kertaa — jokainen kerta löytää uutta
+- Mökillä piti aina pitää keittiön ikkuna auki, jotta kuuli järven äänet
+- Karjalohjan mökillä oli Paavon rakentama keinu — keinu jätettiin uudelle omistajalle
+- Käsityökerhossa Ritva on ryhmän vanhin ja kaikki kysyvät häneltä neuvoja
+
+TUNNELMIA:
+- Käsityöt ovat olleet rauhoittumisen tapa koko elämän
+- Mökki edusti vapautta ja Paavon kanssa kahdestaan oloa
+- Lukeminen avasi maailmoja joihin ei muuten päässyt
+
+SUORIA SITAATTEJA:
+- "Käsityöt eivät ole harrastus — ne ovat tapa ajatella käsillä"
+- "Mökillä Paavo oli kotonaan kuten ei missään muualla"`,
+          word_count: 198,
+        },
+      ];
+
+      let upserted = 0;
+      for (const n of moreNotes) {
+        const { error } = await supabase.from('chapter_notes').upsert(
+          {
+            elder_id: ritvaId,
+            life_stage: n.life_stage,
+            notes_markdown: n.notes_markdown,
+            word_count: n.word_count,
+            last_updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'elder_id,life_stage' },
+        );
+        if (error) throw new Error(`Muistiinpanot (${n.life_stage}): ${error.message}`);
+        upserted++;
+      }
+
+      // Päivitä coverage_map näille luvuille
+      const newCoverage: Record<string, { status: string; depth: number }> = {
+        lapsuus: { status: 'well_covered', depth: 75 },
+        vanhemmat: { status: 'well_covered', depth: 80 },
+        koulu: { status: 'well_covered', depth: 85 },
+        parisuhde: { status: 'well_covered', depth: 90 },
+        lasten_synty: { status: 'well_covered', depth: 80 },
+        harrastukset: { status: 'well_covered', depth: 75 },
+      };
+      for (const [stage, val] of Object.entries(newCoverage)) {
+        await supabase
+          .from('coverage_map')
+          .update({
+            status: val.status,
+            depth_score: val.depth,
+            last_discussed: new Date().toISOString(),
+          })
+          .eq('elder_id', ritvaId)
+          .eq('life_stage', stage);
+      }
+
+      // Lisää muutama uusi arvokas hetki
+      const createdFor = (daysAgo: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() - daysAgo);
+        return d.toISOString();
+      };
+      const thisWeek = startOfWeek();
+      const weekStr = toDateString(thisWeek);
+
+      const newHighlights = [
+        {
+          elder_id: ritvaId,
+          week_start: weekStr,
+          quote: 'Pikku piikana, sinun pitää olla reipas — äiti sanoi sen joka aamu kun käärin lettejä',
+          context: 'Ritva muisti äidin aamuhetkiä Lahdessa',
+          target_chapter: 'Lapsuus',
+          created_at: createdFor(1),
+        },
+        {
+          elder_id: ritvaId,
+          week_start: weekStr,
+          quote: 'Anjan ensimmäinen sana oli kuu. Hän osoitti ikkunaan iltaisin ja sanoi sen niin että kuu olisi tullut alas jos olisi voinut.',
+          context: 'Anjan ensisanasta',
+          target_chapter: 'Lapset',
+          created_at: createdFor(1),
+        },
+        {
+          elder_id: ritvaId,
+          week_start: weekStr,
+          quote: 'Käsityöt eivät ole harrastus — ne ovat tapa ajatella käsillä',
+          context: 'Ritvan elämänviisaus käsitöistä',
+          target_chapter: 'Harrastukset',
+          created_at: createdFor(0),
+        },
+      ];
+      const { error: hlErr } = await supabase.from('legacy_highlights').insert(newHighlights);
+      if (hlErr) throw new Error('Uudet poiminnat: ' + hlErr.message);
+
+      // Lisää huomio
+      const { error: obsErr } = await supabase.from('legacy_observations').insert({
+        elder_id: ritvaId,
+        type: 'milestone',
+        title: 'Kuusi uutta lukua valmiina kirjoitettavaksi',
+        description: `Ainalla on nyt muistiinpanot ${upserted} uudelle luvulle (lapsuus, vanhemmat, koulu, parisuhde, lapset, harrastukset). Voit klikata "Kirjoita koko kirja uudelleen" -nappia kirjassa, jolloin Aina tuottaa proosaa kaikkiin näihin lukuihin.`,
+        created_at: new Date().toISOString(),
+        read_by_family: false,
+      });
+      if (obsErr) throw new Error('Huomio: ' + obsErr.message);
+
+      toast({
+        title: 'Lisätestidata luotu',
+        description: `${upserted} uutta lukua sai muistiinpanot. Avaa Ritvan kirja ja klikkaa "Kirjoita koko kirja uudelleen".`,
+      });
+      await load();
+    } catch (err) {
+      console.error('Seed more failed:', err);
+      toast({
+        title: 'Lisätestidatan luonti epäonnistui',
+        description: (err as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSeedingMore(false);
+    }
+  };
+
   const subscribed = elders.filter((e) => getSubscription(e) !== null);
   const available = elders.filter((e) => getSubscription(e) === null);
 
@@ -580,6 +861,28 @@ Ritva: Niin.`,
                     <AlertDialogFooter>
                       <AlertDialogCancel>Peruuta</AlertDialogCancel>
                       <AlertDialogAction onClick={seedRitvaData}>Luo testidata</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              {import.meta.env.DEV && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={seedingMore} className="border-gold/40 text-gold hover:bg-gold/10">
+                      <Plus className="w-3 h-3 mr-1" />
+                      {seedingMore ? 'Luodaan…' : 'Lisää Ritvalle dataa'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Lisää testidataa Ritvalle</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Luodaan muistiinpanot kuudelle uudelle luvulle (lapsuus, vanhemmat, koulu, parisuhde, lapset, harrastukset), päivitetään edistymä ja lisätään uusia arvokkaita hetkiä. Tämän jälkeen voit avata Ritvan kirjan ja klikata "Kirjoita koko kirja uudelleen" saadaksesi valmiimman kirjan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Peruuta</AlertDialogCancel>
+                      <AlertDialogAction onClick={seedRitvaMoreData}>Lisää data</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
