@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2, PenLine, History } from 'lucide-react';
+import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2, PenLine, History, Wand2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 type ChapterStatus = 'empty' | 'draft' | 'reviewed' | 'final';
@@ -73,6 +73,15 @@ export default function LegacyBookView() {
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [chapterNotes, setChapterNotes] = useState<Record<string, ChapterNotes>>({});
   const [showNotes, setShowNotes] = useState(false);
+  const [compiling, setCompiling] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [consistencyIssues, setConsistencyIssues] = useState<Array<{
+    severity: string;
+    title: string;
+    description: string;
+    affected_chapters?: string[];
+    suggested_action?: string;
+  }>>([]);
 
   const loadAll = async () => {
     if (!elderId) return;
@@ -210,6 +219,61 @@ export default function LegacyBookView() {
       });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const compileFullBook = async () => {
+    const confirmed = confirm(
+      'Kirjoitetaanko koko kirja uudelleen yhdellä kerralla? Kaikkien lukujen proosa päivitetään yhtenäiseksi. Kesto noin 1–2 minuuttia. Vanhat versiot tallennetaan historiaan.',
+    );
+    if (!confirmed) return;
+
+    setCompiling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('muistoissa-compile-full-book', {
+        body: { elder_id: elderId },
+      });
+      if (error) throw error;
+      const eur = (data.estimated_cost_usd * 0.92).toFixed(3);
+      toast({
+        title: 'Koko kirja kirjoitettu',
+        description: `${data.chapters_written} lukua päivitettiin. Kustannus noin ${eur} €.`,
+      });
+      await loadAll();
+    } catch (err) {
+      toast({
+        title: 'Kirjan uudelleenkirjoitus epäonnistui',
+        description: (err as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setCompiling(false);
+    }
+  };
+
+  const checkConsistency = async () => {
+    setChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('muistoissa-check-consistency', {
+        body: { elder_id: elderId },
+      });
+      if (error) throw error;
+      setConsistencyIssues(data.issues || []);
+      toast({
+        title: 'Tarkistus valmis',
+        description:
+          (data.issues?.length || 0) === 0
+            ? 'Ei ristiriitoja löytynyt.'
+            : `${data.issues.length} ${data.issues.length === 1 ? 'ongelma' : 'ongelmaa'} löydetty — katso alta.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Tarkistus epäonnistui',
+        description: (err as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setChecking(false);
     }
   };
 
