@@ -513,7 +513,7 @@ const STATIC_ASSISTANT_CONFIG = {
   name: "Aina Muistoissa",
   voice: {
     provider: "azure",
-    voiceId: "fi-FI-HarriNeural",
+    voiceId: "fi-FI-NooraNeural",
     speed: 1.0,
   },
   transcriber: {
