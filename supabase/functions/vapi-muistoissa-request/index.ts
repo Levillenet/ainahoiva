@@ -716,14 +716,21 @@ Deno.serve(async (req) => {
       .join(", ") || "";
 
     // 7. Aiemmat puhelut + sitaatit
+    // Jos ai_summary puuttuu, käytetään transkriptin keskimmäistä/loppuosaa
+    // (ei alkua, koska alku on vain tervehdys eikä kerro mistä puhuttiin).
     const lastCalls = callsResult.data || [];
     const lastCallSummaries = lastCalls
       .map((c, i) => {
         const date = c.called_at ? new Date(c.called_at).toLocaleDateString("fi-FI") : "—";
-        const summary = c.ai_summary || (c.transcript ? c.transcript.slice(0, 200) + "…" : "Ei yhteenvetoa");
-        return `${i + 1}. (${date}) ${summary}`;
+        let summary = c.ai_summary;
+        if (!summary && c.transcript) {
+          const t = c.transcript;
+          // Ota viimeinen 600 merkkiä (puhelun loppukeskustelu kertoo missä oltiin)
+          summary = t.length > 600 ? "…" + t.slice(-600) : t;
+        }
+        return `${i + 1}. (${date}) ${summary || "Ei yhteenvetoa — käsittelemättä"}`;
       })
-      .join("\n") || "";
+      .join("\n\n") || "";
 
     const recentQuotes = (highlightsResult.data || [])
       .map((h) => `"${h.quote}"${h.target_chapter ? ` — luku: ${h.target_chapter}` : ""}`)
