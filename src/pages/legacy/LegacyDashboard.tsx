@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { BookHeart, ArrowRight, Sparkles, FlaskConical, ScrollText } from 'lucide-react';
+import { BookHeart, ArrowRight, Sparkles, FlaskConical, ScrollText, Plus } from 'lucide-react';
 import { calcAge, formatMonthYear, LIFE_STAGES, startOfWeek, toDateString } from '@/lib/legacy';
 import { toast } from '@/hooks/use-toast';
 
