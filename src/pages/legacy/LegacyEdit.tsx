@@ -178,6 +178,12 @@ const LegacyEdit = () => {
       }, { onConflict: 'elder_id' });
       if (profileErr) throw new Error('Profiili: ' + profileErr.message);
 
+      const { error: subErr } = await supabase
+        .from('legacy_subscriptions')
+        .update({ book_format: bookFormat })
+        .eq('elder_id', elderId);
+      if (subErr) console.warn('Tilauksen muoto-päivitys:', subErr.message);
+
       toast({ title: 'Tiedot päivitetty', description: 'Muutokset tulevat voimaan seuraavalla puhelulla.' });
       navigate(`/dashboard/muistoissa/${elderId}`);
     } catch (err) {
