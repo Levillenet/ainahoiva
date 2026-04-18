@@ -1,53 +1,65 @@
 
 
-Käyttäjä sanoo että Aina kertoo kellonajan tunnin myöhässä: sanoo 20:42 vaikka oikea aika on 21:42. Tämä on klassinen aikavyöhykeongelma — Helsinki on tällä hetkellä EEST (UTC+3) koska on huhtikuu (kesäaika alkoi maaliskuun lopussa).
+## Vahvistus: havainto on täsmälleen sama
 
-Pitää tutkia miten `now`-muuttuja muodostetaan vapi-assistant-request-funktiossa ja missä formaatissa se annetaan promptiin.
+Vapi-puhelulokit todistavat sen mitä epäilin:
 
-Todennäköiset ongelmakohdat:
-1. `now`-muuttuja käyttää `toLocaleString` ilman `timeZone: "Europe/Helsinki"` -optiota
-2. Tai käyttää manuaalista offset-laskentaa joka ei huomioi DST:tä
-3. `getHelsinkiHour()` korjattiin aiemmin mutta itse `now`-stringi (joka näytetään promptissa) jäi vanhaan logiikkaan
+- **Rivi 202**: `"toolName":"add_memory"` → `"error":"No result returned"`
+- **Rivi 203**: `"toolNames":["add_memory"]` epäonnistui
+- Aiemmin samassa puhelussa: `log_medication` epäonnistui samalla tavalla, lopulta `send_text` onnistui
+- **Koko 544-rivisessä lokissa EI YHTÄÄN** mainintaa `read_news`, `get_news` tai `news` toolista
 
-Tutkin tiedoston nopeasti ennen suunnitelmaa.
+Promptissa (`vapi-assistant-request/index.ts` rivi 306-315) on ohje "Kutsu AINA read_news_tool" — **mutta itse työkalua ei ole rekisteröity assistentin tools-arrayssä**. Siksi malli arvaa lähimmän olemassa olevan työkalun (`add_memory`, `log_medication`) ja lopulta tippuu `send_text`:iin.
 
-## Suunnitelma: korjataan kellonajan formatointi promptissa
+## Korjaus
 
-### Ongelma
+### 1. Rekisteröi `read_news_tool` Vapi-assistentin tools-listaan
 
-`getHelsinkiHour()` korjattiin aiemmin Intl.DateTimeFormat:lla, mutta itse `now`-string (jonka Aina lukee ääneen) muodostetaan todennäköisesti edelleen tavalla joka antaa tunnin vähemmän. Helsinki on huhtikuussa EEST (UTC+3), mutta jos koodi käyttää kiinteää +2h offsettia tai `toLocaleString` ilman aikavyöhykettä, tulos on tunnin myöhässä.
+`supabase/functions/vapi-assistant-request/index.ts` palauttaa `assistantOverrides.model.tools[]`. Lisätään sinne uusi function-tool:
 
-### Korjaus
-
-Yksi tiedosto, yksi funktio: tutkitaan `vapi-assistant-request/index.ts` ja korvataan `now`-muuttujan rakentaminen samalla `Intl.DateTimeFormat`-tekniikalla kuin `getHelsinkiHour`:
-
-```typescript
-function getHelsinkiNowString(): string {
-  return new Intl.DateTimeFormat("fi-FI", {
-    timeZone: "Europe/Helsinki",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date());
+```ts
+{
+  type: "function",
+  function: {
+    name: "read_news_tool",
+    description: "Hakee päivän uutiset Yle:n RSS-fiideistä ja palauttaa puheena luettavan tekstin. Kutsu AINA kun käyttäjä pyytää uutisia, otsikoita, urheilua, talousuutisia jne. ÄLÄ KOSKAAN korvaa tätä send_text_tool:lla.",
+    parameters: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          description: "Uutisluokka: headlines, kotimaa, ulkomaat, urheilu, talous, politiikka, kulttuuri, viihde, tiede, terveys, luonto, liikenne, selko, tuoreimmat",
+        },
+      },
+      required: [],
+    },
+  },
+  server: {
+    url: "https://bjsthjvpotfcxgqxtoiy.supabase.co/functions/v1/vapi-get-news",
+  },
 }
 ```
 
-Tämä antaa esim. `"perjantaina 17. huhtikuuta klo 21.42"` — oikealla DST-aikavyöhykkeellä.
+### 2. Vahvista promptin ohje (jo olemassa, mutta korostetaan)
 
-Tarkistetaan myös `outbound-call/index.ts` saman ongelman varalta.
+Lisätään vielä eksplisiittinen kielto: "Jos käyttäjä pyytää uutisia, sää tai ajan, ÄLÄ KOSKAAN kutsu add_memory, log_medication tai send_text. Kutsu read_news_tool."
+
+### 3. Deployaa
+
+`vapi-assistant-request` ja varmistetaan että `vapi-get-news` toimii (se on jo deployattu aiemmin).
 
 ### Tiedostot
 
 ```text
 MUOKATAAN:
-  supabase/functions/vapi-assistant-request/index.ts — korvaa now-stringin muodostus
-  supabase/functions/outbound-call/index.ts          — sama jos sama bugi siellä
+  supabase/functions/vapi-assistant-request/index.ts
+    - lisää read_news_tool tools-listaan
+    - kovenna promptin kielto-osio
+DEPLOYATAAN:
+  vapi-assistant-request
 ```
 
-### Deployaus
+### Testaus puhelun jälkeen
 
-Deployataan molemmat funktiot heti korjauksen jälkeen.
+Pyydä Ainalta uutisia → varmista lokeista että `toolName: "read_news_tool"` ilmestyy ja `eventStatus: "success"`.
 
