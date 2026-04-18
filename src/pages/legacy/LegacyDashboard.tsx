@@ -53,6 +53,7 @@ const LegacyDashboard = () => {
   const [coverageByElder, setCoverageByElder] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [seedingMore, setSeedingMore] = useState(false);
 
   const load = async () => {
     // Muistoissa on eri palvelu kuin Hoiva — is_active koskee vain Hoivaa.
