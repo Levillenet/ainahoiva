@@ -55,6 +55,7 @@ const App = () => (
               <Route path="muistoissa/:elderId/edistyminen" element={<LegacyProgress />} />
               <Route path="muistoissa/:elderId/pyynnot" element={<LegacyRequests />} />
               <Route path="muistoissa/:elderId/huomiot" element={<LegacyObservations />} />
+              <Route path="muistoissa/:elderId/puhelut" element={<LegacyCalls />} />
               <Route path="muistoissa/:elderId/testaa" element={<LegacyTestChat />} />
               <Route path="muistoissa/:elderId/kirja" element={<LegacyBookView />} />
               <Route path="admin/batch-log" element={<NightlyBatchLog />} />
