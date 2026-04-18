@@ -649,7 +649,7 @@ Deno.serve(async (req) => {
         .eq("elder_id", elderId)
         .eq("call_type", "muistoissa")
         .order("called_at", { ascending: false })
-        .limit(2),
+        .limit(3),
       supabase
         .from("legacy_highlights")
         .select("quote, target_chapter, created_at")
