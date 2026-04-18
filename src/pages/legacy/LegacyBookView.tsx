@@ -192,68 +192,6 @@ export default function LegacyBookView() {
     setLoading(false);
   };
 
-  const loadAll = async () => {
-    if (!elderId) return;
-    setLoading(true);
-    const [elderRes, chaptersRes, profileRes, callsRes, notesRes] = await Promise.all([
-      supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
-      supabase
-        .from('book_chapters')
-        .select('*')
-        .eq('elder_id', elderId)
-        .order('chapter_number'),
-      supabase
-        .from('profile_summary')
-        .select('*')
-        .eq('elder_id', elderId)
-        .maybeSingle(),
-      supabase
-        .from('call_reports')
-        .select('id, called_at, duration_seconds, transcript')
-        .eq('elder_id', elderId)
-        .eq('call_type', 'muistoissa')
-        .is('processed_at', null)
-        .order('called_at', { ascending: false }),
-      supabase
-        .from('chapter_notes')
-        .select('*')
-        .eq('elder_id', elderId),
-    ]);
-
-    if (notesRes.data) {
-      const notesByStage: Record<string, ChapterNotes> = {};
-      for (const n of notesRes.data) {
-        notesByStage[n.life_stage] = n as ChapterNotes;
-      }
-      setChapterNotes(notesByStage);
-    }
-
-    if (elderRes.data) setElderName(elderRes.data.full_name);
-    if (chaptersRes.data) {
-      const list = chaptersRes.data as Chapter[];
-      setChapters(list);
-      setSelectedChapter((prev) => {
-        if (prev) {
-          const refreshed = list.find((c) => c.id === prev.id);
-          if (refreshed) return refreshed;
-        }
-        const firstWithContent = list.find((c) => c.content_markdown?.trim().length > 0);
-        return firstWithContent ?? list[0] ?? null;
-      });
-    }
-    if (profileRes.data) setProfile(profileRes.data as ProfileSummary);
-    if (callsRes.data) {
-      setUnprocessedCalls(
-        callsRes.data.map((c) => ({
-          id: c.id,
-          called_at: c.called_at ?? '',
-          duration_seconds: c.duration_seconds || 0,
-          transcript_length: (c.transcript || '').length,
-        })),
-      );
-    }
-    setLoading(false);
-  };
 
   useEffect(() => {
     loadAll();
