@@ -354,8 +354,9 @@ Deno.serve(async (req) => {
 
     for (const stage of coveredDeep) {
       const row = coverageByStage.get(stage);
-      const newDepth = Math.min(100, (row?.depth_score || 0) + 30);
-      const newStatus = newDepth >= 60 ? "well_covered" : "in_progress";
+      // Maltillisempi inkrementti: 15% per syvä keskustelu (ennen 30%)
+      const newDepth = Math.min(100, (row?.depth_score || 0) + 15);
+      const newStatus = newDepth >= 70 ? "well_covered" : "in_progress";
       if (row) {
         await supabase
           .from("coverage_map")
@@ -381,10 +382,11 @@ Deno.serve(async (req) => {
     }
 
     for (const stage of coveredBriefly) {
-      if (coveredDeep.includes(stage)) continue; // jo käsitelty syvemmin
+      if (coveredDeep.includes(stage)) continue;
       const row = coverageByStage.get(stage);
-      const newDepth = Math.min(100, (row?.depth_score || 0) + 10);
-      const newStatus = newDepth >= 60 ? "well_covered" : "in_progress";
+      // Vain 5% kevyestä maininnasta (ennen 10%)
+      const newDepth = Math.min(100, (row?.depth_score || 0) + 5);
+      const newStatus = newDepth >= 70 ? "well_covered" : "in_progress";
       if (row) {
         await supabase
           .from("coverage_map")
@@ -409,14 +411,47 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Tallenna arvokkaat hetket (highlights) ja huomiot (observations)
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+    const weekStartStr = weekStart.toISOString().slice(0, 10);
+
+    let highlightsSaved = 0;
+    for (const hl of analysis.highlights || []) {
+      if (!hl?.quote || hl.quote.length < 10) continue;
+      const { error: hlErr } = await supabase.from("legacy_highlights").insert({
+        elder_id: elderId,
+        week_start: weekStartStr,
+        quote: hl.quote,
+        context: hl.context || null,
+        target_chapter: hl.target_chapter || null,
+      });
+      if (!hlErr) highlightsSaved++;
+    }
+
+    let observationsSaved = 0;
+    for (const obs of analysis.observations || []) {
+      if (!obs?.title) continue;
+      const { error: obsErr } = await supabase.from("legacy_observations").insert({
+        elder_id: elderId,
+        type: obs.type || "suggestion",
+        title: obs.title,
+        description: obs.description || null,
+        read_by_family: false,
+      });
+      if (!obsErr) observationsSaved++;
+    }
+
     console.log(
-      `[muistoissa-process-call] Done. ${chaptersUpdated} chapters updated, coverage: deep=[${coveredDeep.join(",")}] brief=[${coveredBriefly.join(",")}]`,
+      `[muistoissa-process-call] Done. ${chaptersUpdated} chapters, ${highlightsSaved} highlights, ${observationsSaved} observations, coverage: deep=[${coveredDeep.join(",")}] brief=[${coveredBriefly.join(",")}]`,
     );
 
     return new Response(
       JSON.stringify({
         success: true,
         chapters_updated: chaptersUpdated,
+        highlights_saved: highlightsSaved,
+        observations_saved: observationsSaved,
         topics_covered: analysis.topics_covered_in_call || [],
         summary: analysis.call_summary,
       }),
