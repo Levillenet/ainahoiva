@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,6 +47,34 @@ const LegacyOnboarding = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(true);
+
+  // Jos onboarding on jo tehty, ohjaa suoraan Muistoissa-näkymään
+  useEffect(() => {
+    if (!elderId) {
+      setCheckingExisting(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('legacy_profile')
+        .select('onboarding_completed')
+        .eq('elder_id', elderId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data?.onboarding_completed) {
+        toast({
+          title: 'Muistoissa on jo aktivoitu',
+          description: 'Tiedot ovat tallessa — siirrytään Muistoissa-näkymään.',
+        });
+        navigate(`/dashboard/muistoissa/${elderId}`, { replace: true });
+        return;
+      }
+      setCheckingExisting(false);
+    })();
+    return () => { cancelled = true; };
+  }, [elderId, navigate]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -202,6 +230,10 @@ const LegacyOnboarding = () => {
 
   const childrenCount = form.watch('children')?.length ?? 0;
   const sensitiveTopics = form.watch('sensitive_topics') ?? '';
+
+  if (checkingExisting) {
+    return <div className="text-cream/60 text-sm p-8">Tarkistetaan tilannetta…</div>;
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

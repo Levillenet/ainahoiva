@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Volume2, Pencil, Check, X, Brain, Heart } from 'lucide-react';
+import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Volume2, Pencil, Check, X, Brain, Heart, BookOpen, ArrowRight } from 'lucide-react';
 import EmergencySettings from '@/components/EmergencySettings';
 import MemoriesSection from '@/components/MemoriesSection';
 import MedicationLog from '@/components/MedicationLog';
@@ -41,6 +41,7 @@ const ElderDetail = () => {
   const [reports, setReports] = useState<any[]>([]);
   const [memories, setMemories] = useState<any[]>([]);
   const [moodData, setMoodData] = useState<any[]>([]);
+  const [legacy, setLegacy] = useState<{ status: string; target_completion_date: string | null; coverage_pct: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [calling, setCalling] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -109,6 +110,19 @@ const ElderDetail = () => {
         date: new Date(r.called_at!).toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' }),
         mood: r.mood_score,
       })));
+
+      // Hae Muistoissa-tilauksen tila
+      const [{ data: sub }, { data: cov }] = await Promise.all([
+        supabase.from('legacy_subscriptions').select('status, target_completion_date').eq('elder_id', id).maybeSingle(),
+        supabase.from('coverage_map').select('depth_score').eq('elder_id', id),
+      ]);
+      if (sub?.status === 'active') {
+        const pct = cov && cov.length
+          ? Math.round(cov.reduce((a, c) => a + (c.depth_score ?? 0), 0) / cov.length)
+          : 0;
+        setLegacy({ status: sub.status, target_completion_date: sub.target_completion_date, coverage_pct: pct });
+      }
+
       setLoading(false);
     };
     fetchData();
@@ -273,6 +287,30 @@ const ElderDetail = () => {
           <Switch checked={elder.is_active} onCheckedChange={toggleActive} />
         </div>
       </div>
+
+      {/* Muistoissa-tilauksen status */}
+      {legacy && (
+        <div className="bg-card rounded-lg p-5 border-2 border-gold/40 shadow-lg shadow-gold/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <BookOpen className="w-6 h-6 text-gold mt-0.5" />
+            <div>
+              <h2 className="text-cream font-bold text-base">Aina Muistoissa — aktiivinen</h2>
+              <p className="text-muted-foreground text-sm mt-1">
+                Edistymä {legacy.coverage_pct}%
+                {legacy.target_completion_date && (
+                  <> · Arvioitu valmistuminen {new Date(legacy.target_completion_date).toLocaleDateString('fi-FI', { month: 'numeric', year: 'numeric' })}</>
+                )}
+              </p>
+              <p className="text-xs text-cream/50 mt-1">Tiedot ovat tallessa — elämäntarinan kokoaminen on käynnissä.</p>
+            </div>
+          </div>
+          <Link to={`/dashboard/muistoissa/${elder.id}`}>
+            <Button variant="outline" size="sm" className="border-gold text-gold hover:bg-gold/10">
+              Avaa Muistoissa <ArrowRight className="w-3 h-3 ml-1" />
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Cognitive tracking */}
       <div className="bg-card rounded-lg p-6 border border-border">

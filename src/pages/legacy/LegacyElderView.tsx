@@ -90,7 +90,9 @@ const LegacyElderView = () => {
           <ArrowLeft className="w-4 h-4" /> Takaisin
         </Link>
         <h1 className="text-xl text-cream font-medium">{elder?.full_name}</h1>
-        <div className="w-20" />
+        <Link to={`/dashboard/vanhukset/${elderId}`} className="text-cream/60 hover:text-cream text-sm flex items-center gap-1">
+          Perustiedot <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
 
       {subscriptionStatus === 'active' && (
