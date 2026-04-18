@@ -102,8 +102,23 @@ Deno.serve(async (req) => {
       return jsonError("Lukua ei löydy", 404);
     }
 
-    if (!chapter.content_markdown || chapter.content_markdown.length < 100) {
-      return jsonError("Luvussa ei ole tarpeeksi muistiinpanoja kirjoitettavaksi", 400);
+    // Lue muistiinpanot chapter_notes-taulusta (uusi arkkitehtuuri)
+    const { data: notes, error: notesErr } = await supabase
+      .from("chapter_notes")
+      .select("*")
+      .eq("elder_id", chapter.elder_id)
+      .eq("life_stage", chapter.life_stage)
+      .maybeSingle();
+
+    if (notesErr) {
+      return jsonError(`Muistiinpanojen luku epäonnistui: ${notesErr.message}`, 500);
+    }
+
+    if (!notes || !notes.notes_markdown || notes.notes_markdown.length < 100) {
+      return jsonError(
+        "Luvusta ei ole tarpeeksi muistiinpanoja kirjoitettavaksi. Käsittele ensin puheluja.",
+        400,
+      );
     }
 
     const elderId = chapter.elder_id;
@@ -131,10 +146,11 @@ Deno.serve(async (req) => {
         ].filter(Boolean).join("\n")
       : "Ei vielä profiilia.";
 
-    const looksLikeNotes = /FAKTOJA:|ANEKDOOTTEJA:|TUNNELMIA:|SUORIA SITAATTEJA:/.test(chapter.content_markdown);
-
-    const previousProse = !looksLikeNotes ? chapter.content_markdown : "";
-    const structuredNotes = chapter.content_markdown;
+    // Muistiinpanot tulevat omasta taulustaan; previous_prose on aiempi proosa book_chapters-kentästä
+    const structuredNotes = notes.notes_markdown;
+    const previousProse = chapter.content_markdown && chapter.content_markdown.length > 100
+      ? chapter.content_markdown
+      : "";
 
     const prompt = buildProsePrompt({
       elder_name: elderName,
@@ -179,16 +195,18 @@ Deno.serve(async (req) => {
 
     console.log(`[muistoissa-generate-chapter] Generated ${wordCount} words`);
 
-    // Tallenna vanha versio (muistiinpanot tai aiempi proosa) historiaan
-    await supabase.from("chapter_revisions").insert({
-      chapter_id: chapter.id,
-      content_markdown: chapter.content_markdown,
-      word_count: chapter.word_count,
-      ai_model_used: looksLikeNotes ? "pre-prose-notes" : "previous-prose",
-      prompt_version: "3c-prose",
-      change_reason: "Ennen proosan kirjoitusta",
-      created_by_ai: false,
-    });
+    // Tallenna aiempi proosa historiaan ennen ylikirjoitusta (jos sellainen oli)
+    if (chapter.content_markdown && chapter.content_markdown.length > 100) {
+      await supabase.from("chapter_revisions").insert({
+        chapter_id: chapter.id,
+        content_markdown: chapter.content_markdown,
+        word_count: chapter.word_count,
+        ai_model_used: "previous-prose",
+        prompt_version: "3c-prose",
+        change_reason: "Ennen proosan uudelleenkirjoitusta",
+        created_by_ai: false,
+      });
+    }
 
     const now = new Date().toISOString();
     const newVersion = (chapter.version || 1) + 1;
@@ -201,10 +219,12 @@ Deno.serve(async (req) => {
         status: "draft",
         version: newVersion,
         last_generated_at: now,
+        prose_generated_at: now,
+        prose_source_notes_version: notes.word_count,
       })
       .eq("id", chapter.id);
 
-    // Tallenna myös uusi proosaversio historiaan jäljitettävyyden vuoksi
+    // Tallenna uusi proosaversio historiaan jäljitettävyyden vuoksi
     await supabase.from("chapter_revisions").insert({
       chapter_id: chapter.id,
       content_markdown: proseText,

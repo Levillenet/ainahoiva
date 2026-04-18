@@ -372,6 +372,75 @@ Rouva Saarnio piti hänestä erityisesti. "Ritva osaa kuunnella", hän sanoi ker
       );
       if (chTyoErr) throw new Error('Kirjan luku 7: ' + chTyoErr.message);
 
+      // Muistiinpanot raakadatana — chapter_notes-tauluun (uusi arkkitehtuuri)
+      const { error: noteKotoaErr } = await supabase.from('chapter_notes').upsert(
+        {
+          elder_id: ritvaId,
+          life_stage: 'kotoa_lahto',
+          notes_markdown: `FAKTOJA:
+- Lähti Viipurista Helsinkiin junalla toukokuun viimeisenä päivänä 1962
+- Oli 19-vuotias
+- Sai isältä 100 markkaa kirjekuoressa ja ruskean pahvisen matkalaukun
+- Meni asumaan Tähtitorninkadulle, kolmannen kerroksen ullakkohuoneeseen
+- Jakoi asunnon Liisan kanssa (Ylihärmästä, ompelukoulun tuttava)
+
+ANEKDOOTTEJA:
+- Äiti itki aamulla keittiössä kädet polvilla
+- Isä sanoi lyhyesti: "Kyllä sinä pärjäät, olet aina pärjännyt"
+- Junasta näkyi vasta puhjenneita koivuja, järvien pinta tyynenä
+- Matkalaukku pysyi jalkojen välissä koko matkan
+- Liisa lauloi aamuisin kahvia keittäessään
+- Ensimmäisenä iltana Tähtitorninkadulla joku soitti pihalla haitarilla Kesämökkiä
+
+TUNNELMIA:
+- Koti-ikävää ja pelkoa sekaisin
+- Helsinki tuntui valoisammalta kuin Viipuri
+- Liisan läsnäolo teki yksinäisyydestä kestettävämpää
+
+SUORIA SITAATTEJA:
+- "Kyllä sinä pärjäät, olet aina pärjännyt" (isä junamatkalla)
+- "Minä olen nyt täällä. Tämä on nyt elämäni." (Ritvan oma ajatus ensimmäisenä iltana)`,
+          word_count: 170,
+          last_updated_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        { onConflict: 'elder_id,life_stage' },
+      );
+      if (noteKotoaErr) throw new Error('Muistiinpanot (kotoa_lahto): ' + noteKotoaErr.message);
+
+      const { error: noteTyoErr } = await supabase.from('chapter_notes').upsert(
+        {
+          elder_id: ritvaId,
+          life_stage: 'tyo',
+          notes_markdown: `FAKTOJA:
+- Ensimmäinen työpaikka: Rouva Saarnion ompelimo Töölössä
+- Sijainti: Mechelininkatu
+- Aloitti kesällä 1962, 2 viikkoa Helsinkiin saapumisesta
+- Messinkikyltti ovessa: "Saarnio — pukuompelimo"
+- Työskenteli ompelimossa 36 vuotta
+- Aloitti juoksupoikana, eteni kokonaisten pukujen ompelijaksi
+
+ANEKDOOTTEJA:
+- Rouva Saarnio oli keski-ikäinen, siistit valkoiset hiukset, ryhdikäs
+- Ensimmäisellä käynnillä rouva Saarnio vilkaisi Ritvan pistoja ja nyökkäsi: "Pistot ovat nätit"
+- "Ja sinä olet hiljainen. Se on hyvä."
+- Vuoden päästä teki jo kokonaisia pukuja
+- Rouva Saarnio kertoi kerran asiakkaalle: "Ritva osaa kuunnella, sen takia hän tietää mitä te haluatte ennen kuin te sen itse sanotte"
+
+TUNNELMIA:
+- Ompelimon hiljaisuus ja kankaan tuoksu muodostuivat kodin tunnelmaksi
+- Rouva Saarnion kehu oli työuran suurin huippu
+- Pitkäkestoinen paikka, ei tarvinnut etsiä toista
+
+SUORIA SITAATTEJA:
+- "Pistot ovat nätit. Ja sinä olet hiljainen. Se on hyvä." (rouva Saarnio ensi tapaamisessa)
+- "Ritva osaa kuunnella, sen takia hän tietää mitä te haluatte ennen kuin te sen itse sanotte" (rouva Saarnio asiakkaalle)`,
+          word_count: 182,
+          last_updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        { onConflict: 'elder_id,life_stage' },
+      );
+      if (noteTyoErr) throw new Error('Muistiinpanot (tyo): ' + noteTyoErr.message);
+
       const { error: psErr } = await supabase.from('profile_summary').upsert(
         {
           elder_id: ritvaId,

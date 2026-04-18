@@ -221,33 +221,51 @@ Deno.serve(async (req) => {
       const existingChapter = chapters.find((c: any) => c.life_stage === update.life_stage);
       if (!existingChapter) continue;
 
-      const newContent = existingChapter.content_markdown
-        ? `${existingChapter.content_markdown}\n\n---\n\n${update.notes_to_add}`
+      // Lue olemassa olevat muistiinpanot chapter_notes-taulusta (ei book_chapters!)
+      const { data: existingNotes } = await supabase
+        .from("chapter_notes")
+        .select("*")
+        .eq("elder_id", elderId)
+        .eq("life_stage", update.life_stage)
+        .maybeSingle();
+
+      const currentNotes = existingNotes?.notes_markdown || "";
+      const newNotesContent = currentNotes
+        ? `${currentNotes}\n\n---\n\n${update.notes_to_add}`
         : update.notes_to_add;
 
-      const newWordCount = countWords(newContent);
+      const newWordCount = countWords(newNotesContent);
 
-      // Tallenna edellinen versio historiaan ennen päivitystä
-      await supabase.from("chapter_revisions").insert({
-        chapter_id: existingChapter.id,
-        content_markdown: existingChapter.content_markdown || "",
-        word_count: existingChapter.word_count || 0,
-        ai_model_used: null,
-        prompt_version: "3b-raw-notes",
-        change_reason: `Ennen puhelun ${callReportId} käsittelyä`,
-        created_by_ai: false,
-      });
+      if (existingNotes) {
+        await supabase
+          .from("chapter_notes")
+          .update({
+            notes_markdown: newNotesContent,
+            word_count: newWordCount,
+            last_updated_at: now,
+            chapter_id: existingChapter.id,
+          })
+          .eq("id", existingNotes.id);
+      } else {
+        await supabase
+          .from("chapter_notes")
+          .insert({
+            elder_id: elderId,
+            life_stage: update.life_stage,
+            chapter_id: existingChapter.id,
+            notes_markdown: newNotesContent,
+            word_count: newWordCount,
+            last_updated_at: now,
+          });
+      }
 
-      await supabase
-        .from("book_chapters")
-        .update({
-          content_markdown: newContent,
-          word_count: newWordCount,
-          status: existingChapter.status === "empty" ? "draft" : existingChapter.status,
-          last_generated_at: now,
-          version: (existingChapter.version || 1) + 1,
-        })
-        .eq("id", existingChapter.id);
+      // Merkitse luku draft-tilaan kun siihen tulee ensimmäiset muistiinpanot
+      if (existingChapter.status === "empty") {
+        await supabase
+          .from("book_chapters")
+          .update({ status: "draft" })
+          .eq("id", existingChapter.id);
+      }
 
       chaptersUpdated++;
     }

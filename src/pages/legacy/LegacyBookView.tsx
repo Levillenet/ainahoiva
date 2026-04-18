@@ -46,6 +46,13 @@ type Revision = {
   created_by_ai: boolean | null;
 };
 
+type ChapterNotes = {
+  id: string;
+  notes_markdown: string;
+  word_count: number;
+  last_updated_at: string;
+};
+
 const STATUS_LABELS: Record<ChapterStatus, { label: string; className: string }> = {
   empty: { label: 'Ei vielä aloitettu', className: 'bg-muted text-muted-foreground border-border' },
   draft: { label: 'Luonnos', className: 'bg-amber-900/30 text-amber-200 border-amber-800/50' },
@@ -64,11 +71,13 @@ export default function LegacyBookView() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [revisions, setRevisions] = useState<Revision[]>([]);
+  const [chapterNotes, setChapterNotes] = useState<Record<string, ChapterNotes>>({});
+  const [showNotes, setShowNotes] = useState(false);
 
   const loadAll = async () => {
     if (!elderId) return;
     setLoading(true);
-    const [elderRes, chaptersRes, profileRes, callsRes] = await Promise.all([
+    const [elderRes, chaptersRes, profileRes, callsRes, notesRes] = await Promise.all([
       supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
       supabase
         .from('book_chapters')
@@ -87,7 +96,19 @@ export default function LegacyBookView() {
         .eq('call_type', 'muistoissa')
         .is('processed_at', null)
         .order('called_at', { ascending: false }),
+      supabase
+        .from('chapter_notes')
+        .select('*')
+        .eq('elder_id', elderId),
     ]);
+
+    if (notesRes.data) {
+      const notesByStage: Record<string, ChapterNotes> = {};
+      for (const n of notesRes.data) {
+        notesByStage[n.life_stage] = n as ChapterNotes;
+      }
+      setChapterNotes(notesByStage);
+    }
 
     if (elderRes.data) setElderName(elderRes.data.full_name);
     if (chaptersRes.data) {
@@ -408,48 +429,102 @@ export default function LegacyBookView() {
                   </div>
                 )}
 
-                {selectedChapter.content_markdown && (
-                  <div className="flex items-center gap-3 flex-wrap pb-2">
-                    <Button
-                      size="sm"
-                      onClick={generateProse}
-                      disabled={generating}
-                      className="bg-gold/80 hover:bg-gold text-background"
-                    >
-                      {generating ? (
-                        <>
-                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                          Kirjoitetaan…
-                        </>
-                      ) : (
-                        <>
-                          <PenLine className="w-3 h-3 mr-2" />
-                          {selectedChapter.content_markdown.length > 1000
-                            ? 'Kirjoita uudelleen'
-                            : 'Kirjoita proosaksi'}
-                        </>
-                      )}
-                    </Button>
-                    {generating && (
-                      <span className="text-xs text-cream/50">
-                        Claude Sonnet 4.5 työstää (~30–60 s)
-                      </span>
-                    )}
-                  </div>
-                )}
+                {(() => {
+                  const notes = selectedChapter ? chapterNotes[selectedChapter.life_stage] : undefined;
+                  const hasNotes = !!notes?.notes_markdown && notes.notes_markdown.length >= 100;
+                  const hasProse = !!selectedChapter.content_markdown && selectedChapter.content_markdown.length > 100;
 
-                {selectedChapter.content_markdown ? (
-                  <div className="prose prose-invert max-w-none text-cream/90 leading-relaxed whitespace-pre-wrap">
-                    {selectedChapter.content_markdown}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <p className="text-cream/60 mb-2">Tämä luku on vielä tyhjä</p>
-                    <p className="text-sm text-cream/40">
-                      Kirjailija-AI aloittaa luvun kun aiheen puhelumateriaalia on riittävästi
-                    </p>
-                  </div>
-                )}
+                  return (
+                    <>
+                      <div className="flex items-center gap-3 flex-wrap pb-2">
+                        <Button
+                          size="sm"
+                          onClick={generateProse}
+                          disabled={generating || !hasNotes}
+                          className="bg-gold/80 hover:bg-gold text-background"
+                        >
+                          {generating ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                              Kirjoitetaan…
+                            </>
+                          ) : (
+                            <>
+                              <PenLine className="w-3 h-3 mr-2" />
+                              {hasProse ? 'Kirjoita uudelleen proosaksi' : 'Kirjoita proosaksi'}
+                            </>
+                          )}
+                        </Button>
+                        {generating && (
+                          <span className="text-xs text-cream/50">
+                            Claude Sonnet 4.5 työstää (~30–60 s)
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Välilehdet: Proosa / Muistiinpanot */}
+                      <div className="flex items-center gap-2 mb-4 border-b border-border">
+                        <button
+                          onClick={() => setShowNotes(false)}
+                          className={`px-3 py-2 text-sm transition-colors ${
+                            !showNotes
+                              ? 'text-gold border-b-2 border-gold -mb-[1px]'
+                              : 'text-cream/50 hover:text-cream/80'
+                          }`}
+                        >
+                          Proosa
+                        </button>
+                        <button
+                          onClick={() => setShowNotes(true)}
+                          className={`px-3 py-2 text-sm transition-colors ${
+                            showNotes
+                              ? 'text-gold border-b-2 border-gold -mb-[1px]'
+                              : 'text-cream/50 hover:text-cream/80'
+                          }`}
+                        >
+                          Muistiinpanot {notes ? `(${notes.word_count} sanaa)` : ''}
+                        </button>
+                      </div>
+
+                      {showNotes ? (
+                        notes?.notes_markdown ? (
+                          <div className="bg-muted/5 p-4 rounded-md">
+                            <pre className="text-sm text-cream/90 whitespace-pre-wrap font-mono leading-relaxed">
+                              {notes.notes_markdown}
+                            </pre>
+                            <p className="text-xs text-cream/40 mt-4 pt-3 border-t border-border">
+                              Muistiinpanot päivitetty{' '}
+                              {new Date(notes.last_updated_at).toLocaleString('fi-FI')}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="py-12 text-center text-cream/40">
+                            <p>Tästä aiheesta ei ole vielä muistiinpanoja.</p>
+                            <p className="text-xs mt-2">
+                              Muistiinpanot syntyvät kun vanhus kertoo tästä aiheesta puheluissa
+                              ja puhelu käsitellään kirjailijalla.
+                            </p>
+                          </div>
+                        )
+                      ) : hasProse ? (
+                        <div className="prose prose-invert max-w-none font-serif text-cream/90 leading-relaxed space-y-4">
+                          {selectedChapter.content_markdown.split('\n\n').map((paragraph, i) => (
+                            <p key={i}>{paragraph}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center text-cream/40">
+                          <p>Tämä luku ei ole vielä kirjoitettu proosaksi.</p>
+                          <p className="text-xs mt-2">
+                            {hasNotes
+                              ? 'Muistiinpanoja on olemassa — klikkaa "Kirjoita proosaksi" yllä.'
+                              : 'Odottaa että aiheesta syntyy puhelumateriaalia.'}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {revisions.length > 0 && (
                   <details className="mt-6 pt-4 border-t border-border/50">
