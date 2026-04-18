@@ -865,6 +865,28 @@ SUORIA SITAATTEJA:
                   </AlertDialogContent>
                 </AlertDialog>
               )}
+              {import.meta.env.DEV && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={seedingMore} className="border-gold/40 text-gold hover:bg-gold/10">
+                      <Plus className="w-3 h-3 mr-1" />
+                      {seedingMore ? 'Luodaan…' : 'Lisää Ritvalle dataa'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Lisää testidataa Ritvalle</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Luodaan muistiinpanot kuudelle uudelle luvulle (lapsuus, vanhemmat, koulu, parisuhde, lapset, harrastukset), päivitetään edistymä ja lisätään uusia arvokkaita hetkiä. Tämän jälkeen voit avata Ritvan kirjan ja klikata "Kirjoita koko kirja uudelleen" saadaksesi valmiimman kirjan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Peruuta</AlertDialogCancel>
+                      <AlertDialogAction onClick={seedRitvaMoreData}>Lisää data</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           </div>
         </CardHeader>
