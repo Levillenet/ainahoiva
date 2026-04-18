@@ -23,6 +23,7 @@ import LegacyEdit from "./pages/legacy/LegacyEdit";
 import LegacyProgress from "./pages/legacy/LegacyProgress";
 import LegacyRequests from "./pages/legacy/LegacyRequests";
 import LegacyObservations from "./pages/legacy/LegacyObservations";
+import LegacyCalls from "./pages/legacy/LegacyCalls";
 import LegacyTestChat from "./pages/legacy/LegacyTestChat";
 import LegacyBookView from "./pages/legacy/LegacyBookView";
 import NightlyBatchLog from "./pages/admin/NightlyBatchLog";
