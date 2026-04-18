@@ -18,18 +18,35 @@ import { BookHeart, ArrowRight, Sparkles, FlaskConical } from 'lucide-react';
 import { calcAge, formatMonthYear, LIFE_STAGES, startOfWeek, toDateString } from '@/lib/legacy';
 import { toast } from '@/hooks/use-toast';
 
+type SubscriptionRow = {
+  status: string;
+  started_at: string;
+  target_completion_date: string | null;
+  book_target_chapters: number;
+};
+
 interface ElderRow {
   id: string;
   full_name: string;
-  legacy_subscriptions: {
-    status: string;
-    started_at: string;
-    target_completion_date: string | null;
-    book_target_chapters: number;
-  }[] | null;
-  legacy_profile: { birth_year: number | null }[] | null;
+  // PostgREST palauttaa joko objektin (one-to-one UNIQUE) tai arrayn — tuetaan molempia
+  legacy_subscriptions: SubscriptionRow | SubscriptionRow[] | null;
+  legacy_profile: { birth_year: number | null } | { birth_year: number | null }[] | null;
   call_reports: { called_at: string }[] | null;
 }
+
+const getSubscription = (e: ElderRow): SubscriptionRow | null => {
+  const s = e.legacy_subscriptions;
+  if (!s) return null;
+  if (Array.isArray(s)) return s[0] ?? null;
+  return s;
+};
+
+const getBirthYear = (e: ElderRow): number | null | undefined => {
+  const p = e.legacy_profile;
+  if (!p) return null;
+  if (Array.isArray(p)) return p[0]?.birth_year;
+  return p.birth_year;
+};
 
 const LegacyDashboard = () => {
   const [elders, setElders] = useState<ElderRow[]>([]);
@@ -53,7 +70,7 @@ const LegacyDashboard = () => {
     setElders(list);
 
     const subscribedIds = list
-      .filter((e) => (e.legacy_subscriptions?.length ?? 0) > 0)
+      .filter((e) => getSubscription(e) !== null)
       .map((e) => e.id);
 
     if (subscribedIds.length) {
@@ -326,8 +343,8 @@ const LegacyDashboard = () => {
     }
   };
 
-  const subscribed = elders.filter((e) => (e.legacy_subscriptions?.length ?? 0) > 0);
-  const available = elders.filter((e) => (e.legacy_subscriptions?.length ?? 0) === 0);
+  const subscribed = elders.filter((e) => getSubscription(e) !== null);
+  const available = elders.filter((e) => getSubscription(e) === null);
 
   if (loading) {
     return <div className="text-cream/60">Ladataan…</div>;
@@ -391,8 +408,8 @@ const LegacyDashboard = () => {
           <h2 className="text-lg font-medium text-cream mb-3">Käynnissä olevat tarinat</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {subscribed.map((e) => {
-              const sub = e.legacy_subscriptions![0];
-              const age = calcAge(e.legacy_profile?.[0]?.birth_year);
+              const sub = getSubscription(e)!;
+              const age = calcAge(getBirthYear(e));
               const pct = coverageByElder[e.id] ?? 0;
               const lastCall = e.call_reports?.[0]?.called_at;
               const target = sub.target_completion_date
