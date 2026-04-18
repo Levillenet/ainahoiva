@@ -397,6 +397,66 @@ const LegacyEdit = () => {
           </CardContent>
         </Card>
 
+        {/* Kirjan muoto */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-cream flex items-center gap-2 text-base">
+              <BookText className="w-5 h-5 text-gold" />
+              Kirjan muoto
+            </CardTitle>
+            <p className="text-xs text-cream/60 mt-1">
+              Voit vaihtaa muotoa myös kesken projektin. Jos vaihdat novellista kirjaksi, kerätään
+              lisää aineistoa. Jos vaihdat kirjasta novelliin, pääset valmiiksi nopeammin.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(Object.keys(BOOK_FORMATS) as BookFormat[]).map((format) => {
+                const f = BOOK_FORMATS[format];
+                const isSelected = bookFormat === format;
+                return (
+                  <button
+                    key={format}
+                    type="button"
+                    onClick={() => setBookFormat(format)}
+                    className={`text-left p-4 rounded-md border-2 transition-all ${
+                      isSelected
+                        ? 'border-gold bg-gold/10'
+                        : 'border-border bg-muted/5 hover:border-gold/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-cream font-medium text-sm">{f.label}</p>
+                      {isSelected && <span className="text-[10px] text-gold">✓ Valittu</span>}
+                    </div>
+                    <p className="text-xs text-cream/70 leading-relaxed mb-3">{f.description}</p>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <p className="text-cream/50">Pituus</p>
+                        <p className="text-cream">{f.pageEstimate}</p>
+                      </div>
+                      <div>
+                        <p className="text-cream/50">Luvut</p>
+                        <p className="text-cream">{f.chapterCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-cream/50">Tilaus</p>
+                        <p className="text-cream">{f.subscriptionMonths} kk</p>
+                      </div>
+                      <div>
+                        <p className="text-cream/50">Hinta</p>
+                        <p className="text-cream">
+                          {f.priceMonthly} €/kk + {f.pricePrintedCopy} €
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="flex justify-end gap-2 sticky bottom-0 bg-background/80 backdrop-blur py-3 border-t border-border">
           <Button type="button" variant="ghost" onClick={() => navigate(`/dashboard/muistoissa/${elderId}`)}>
             Peruuta
