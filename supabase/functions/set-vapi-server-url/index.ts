@@ -58,9 +58,9 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         serverUrl: serverUrl,
-        serverMessages: assistantParam === "muistoissa"
-          ? ["assistant-request", "end-of-call-report"]
-          : ["end-of-call-report"],
+        // assistant-request lähetetään automaattisesti kun puhelussa ei ole assistantId:tä
+        // joten serverMessages tarvitsee vain end-of-call-report
+        serverMessages: ["end-of-call-report"],
       }),
     });
 
