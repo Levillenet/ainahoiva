@@ -72,7 +72,21 @@ VASTAA TÄSSÄ TÄSMÄLLISESSÄ JSON-MUODOSSA (älä mitään muuta, ei selityks
   },
   "call_summary": "Puhelussa Ritva kertoi ensimmäistä kertaa yksityiskohtaisesti kotoa lähdöstään 1962.",
   "topics_covered_in_call": ["kotoa_lahto"],
-  "topics_mentioned_briefly": ["sisarukset", "vanhemmat"]
+  "topics_mentioned_briefly": ["sisarukset", "vanhemmat"],
+  "highlights": [
+    {
+      "quote": "Suora sitaatti vanhukselta — yksi kaunis tai liikuttava lause sellaisenaan.",
+      "context": "Lyhyt selitys mistä puhuttiin kun lause sanottiin.",
+      "target_chapter": "kotoa_lahto"
+    }
+  ],
+  "observations": [
+    {
+      "type": "milestone",
+      "title": "Lyhyt otsikko",
+      "description": "Tarkempi selitys mitä havaittiin tässä puhelussa."
+    }
+  ]
 }
 
 Tärkeät säännöt:
@@ -80,6 +94,8 @@ Tärkeät säännöt:
 - Älä keksi faktoja, vain siteeraa transkriptiä.
 - Jos transkriptiä on vähän tai aihetta ei käsitelty syvästi, chapter_updates voi olla tyhjä taulukko.
 - confidence on "high" jos aihe käsiteltiin selkeästi, "medium" jos vihjeitä, "low" jos vain ohimennen.
+- highlights: poimi 1–3 erityisen kaunista, liikuttavaa tai paljastavaa SUORAA SITAATTIA vanhukselta. Jos puhelu oli pinnallinen, palauta tyhjä taulukko. Älä keksi sitaatteja — vain todelliset rivit transkriptistä.
+- observations: lisää 0–2 huomiota omaiselle. Tyypit: "milestone" (uusi luku alkoi tms.), "sensitive_topic" (vanhus vältti aihetta), "boundary_respected" (Aina kunnioitti rajaa), "suggestion" (ehdotus omaiselle). Vain jos jotain todella merkityksellistä tapahtui.
 - Kaikki teksti suomeksi.`;
 }
 
