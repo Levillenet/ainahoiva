@@ -402,21 +402,21 @@ Aloita lämpimästi, kutsumanimellä:
 
 // ============= AIHEEN VALINTA =============
 const TOPIC_OPENINGS: Record<string, string> = {
-  lapsuus: "Kertoisitteko vähän lapsuudestanne — mitä mieleenne tulee ensimmäisenä kun ajattelette sitä aikaa?",
-  vanhemmat: "Millainen äitinne oli? Haluaisin kuulla hänestä.",
-  sisarukset: "Oliko teillä sisaruksia — millaista yhdessä oli?",
-  koulu: "Muistatteko kouluaikoja — ensimmäisiä koulupäiviä, opettajia, kavereita?",
-  nuoruus: "Millaista oli olla nuori teidän aikaanne?",
-  kotoa_lahto: "Kertoisitteko siitä ajasta kun lähditte pois kotoa. Millainen se päivä oli?",
-  tyo: "Ensimmäinen työpaikka — mikä se oli ja miltä se tuntui?",
-  parisuhde: "Miten tapasitte puolisonne?",
-  lasten_synty: "Muistatteko kun lapsenne syntyi? Millainen se päivä oli?",
-  keski_ika: "Mikä on ollut elämänne merkittävin käännekohta?",
-  harrastukset: "Mitä teitte vapaa-ajallanne silloin nuorempana — mitä jäi mieleen?",
-  matkat: "Kertoisitteko jostain matkasta joka jäi mieleen.",
-  menetykset: "Onko elämässänne ollut ajanjaksoa joka on ollut vaikea mutta opettanut paljon?",
-  elakkeelle: "Miltä tuntui jäädä eläkkeelle?",
-  arvot: "Mikä on tärkeintä mitä haluaisitte että lapsenlapsenne tietäisivät elämästä?",
+  lapsuus: "Missä asuitte kun olitte ihan pieni? Sanokaa paikan nimi tarkasti.",
+  vanhemmat: "Mikä oli äitinne kokonimi? Entä syntymävuosi?",
+  sisarukset: "Kuinka paljon teillä oli sisaruksia? Sanokaa nimet vanhimmasta nuorimpaan.",
+  koulu: "Missä koulussa kävitte ekat luokat? Mikä oli ekan opettajan nimi?",
+  nuoruus: "Minkä ikäisenä menitte ensimmäiseen tanssiin? Missä se tanssipaikka oli?",
+  kotoa_lahto: "Minä vuonna lähditte kotoa pois? Mihin paikkaan menitte ensin?",
+  tyo: "Mikä oli ensimmäinen palkkatyönne? Kenen palveluksessa?",
+  parisuhde: "Missä paikassa tapasitte puolisonne ensimmäisen kerran?",
+  lasten_synty: "Minä vuonna ensimmäinen lapsenne syntyi? Missä sairaalassa tai kotona?",
+  keski_ika: "Missä asuitte kun olitte 40-vuotias? Mitä työtä teitte silloin?",
+  harrastukset: "Mitä teitte sunnuntai-iltapäivisin nuorena? Yksi konkreettinen asia.",
+  matkat: "Mikä oli ensimmäinen matka jonka teitte ulkomaille? Mihin maahan?",
+  menetykset: "Onko joku läheinen ihminen joka jäi mieleenne erityisellä tavalla? Sanokaa hänen nimensä.",
+  elakkeelle: "Minä vuonna jäitte eläkkeelle? Mistä työpaikasta?",
+  arvot: "Mikä on yksi neuvo jonka antaisitte 20-vuotiaalle ihmiselle?",
 };
 
 async function getCallCount(elderId: string): Promise<number> {
