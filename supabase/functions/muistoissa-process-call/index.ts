@@ -302,7 +302,82 @@ Deno.serve(async (req) => {
       })
       .eq("id", callReportId);
 
-    console.log(`[muistoissa-process-call] Done. ${chaptersUpdated} chapters updated.`);
+    // Päivitä coverage_map jotta kirjailija-AI tietää mistä on jo puhuttu
+    // ja seuraava puhelu osaa siirtyä uuteen aiheeseen.
+    const coveredDeep: string[] = analysis.topics_covered_in_call || [];
+    const coveredBriefly: string[] = analysis.topics_mentioned_briefly || [];
+
+    // Hae nykyiset coverage-rivit jotta voimme inkrementoida depth_scorea
+    const { data: existingCoverage } = await supabase
+      .from("coverage_map")
+      .select("id, life_stage, depth_score, status, questions_asked")
+      .eq("elder_id", elderId)
+      .in("life_stage", [...coveredDeep, ...coveredBriefly]);
+
+    const coverageByStage = new Map(
+      (existingCoverage || []).map((r: any) => [r.life_stage, r]),
+    );
+
+    for (const stage of coveredDeep) {
+      const row = coverageByStage.get(stage);
+      const newDepth = Math.min(100, (row?.depth_score || 0) + 30);
+      const newStatus = newDepth >= 60 ? "well_covered" : "in_progress";
+      if (row) {
+        await supabase
+          .from("coverage_map")
+          .update({
+            depth_score: newDepth,
+            status: newStatus,
+            last_discussed: now,
+            questions_asked: (row.questions_asked || 0) + 1,
+          })
+          .eq("id", row.id);
+      } else {
+        await supabase.from("coverage_map").insert({
+          elder_id: elderId,
+          life_stage: stage,
+          theme: stage,
+          depth_score: newDepth,
+          status: newStatus,
+          last_discussed: now,
+          questions_asked: 1,
+          priority: 5,
+        });
+      }
+    }
+
+    for (const stage of coveredBriefly) {
+      if (coveredDeep.includes(stage)) continue; // jo käsitelty syvemmin
+      const row = coverageByStage.get(stage);
+      const newDepth = Math.min(100, (row?.depth_score || 0) + 10);
+      const newStatus = newDepth >= 60 ? "well_covered" : "in_progress";
+      if (row) {
+        await supabase
+          .from("coverage_map")
+          .update({
+            depth_score: newDepth,
+            status: newStatus,
+            last_discussed: now,
+            questions_asked: (row.questions_asked || 0) + 1,
+          })
+          .eq("id", row.id);
+      } else {
+        await supabase.from("coverage_map").insert({
+          elder_id: elderId,
+          life_stage: stage,
+          theme: stage,
+          depth_score: newDepth,
+          status: newStatus,
+          last_discussed: now,
+          questions_asked: 1,
+          priority: 5,
+        });
+      }
+    }
+
+    console.log(
+      `[muistoissa-process-call] Done. ${chaptersUpdated} chapters updated, coverage: deep=[${coveredDeep.join(",")}] brief=[${coveredBriefly.join(",")}]`,
+    );
 
     return new Response(
       JSON.stringify({

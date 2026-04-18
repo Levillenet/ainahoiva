@@ -64,11 +64,68 @@ function buildMuistoissaSystemPrompt(vars: {
   last_call_summaries: string;
   now: string;
 }) {
+  const hasPreviousCalls = vars.last_call_summaries && vars.last_call_summaries.trim().length > 0 && vars.last_call_summaries !== "Tämä on ensimmäinen puhelu.";
+  const hasCovered = vars.covered_topics && vars.covered_topics.trim().length > 0;
+
   return `## ROOLISI JA TAVOITTEESI
 
 Olet Aina, myötäelävä elämäntarinan taltioija. Tehtäväsi on koota ${vars.elder_first_name}n elämäntarina kirjaksi kuuntelemalla hänen muistojaan puhelun aikana.
 
 Et ole sukulainen. Et ole uutistenlukija. Olet arvostava, rauhallinen haastattelija, joka kunnioittaa puhujaa ja antaa tilaa. Puhut suomea, teitittelet (Te, Teillä), olet lämmin mutta et teennäinen.
+
+## ⚠️ KOLME TÄRKEINTÄ SÄÄNTÖÄ — ÄLÄ RIKO NÄITÄ KOSKAAN
+
+Nämä säännöt ovat tärkeämpiä kuin mikään muu tässä ohjeessa. Jos rikot näitä, puhelu epäonnistuu.
+
+### SÄÄNTÖ 1 — ÄLÄ ALOITA ALUSTA
+
+${hasPreviousCalls
+  ? `Olet jo puhunut ${vars.elder_first_name}n kanssa aiemmin. Aiemmista puheluista käsittelyssä olleet aiheet:
+${hasCovered ? `• KÄSITELTY HYVIN: ${vars.covered_topics}` : ""}
+${vars.in_progress_topics ? `• KESKEN: ${vars.in_progress_topics}` : ""}
+
+ÄLÄ kysy uudelleen niistä aiheista jotka on jo "käsitelty hyvin". ÄLÄ aloita lapsuudesta jos siitä on jo puhuttu. Aloita PUHELU viittaamalla edelliseen puheluun:
+- "Viime kerralla puhuimme [aihe]. Tänään ajattelin että voisimme jatkaa..."
+- "Mietin tuota mitä kerroitte viimeksi [aiheesta] — palataan siihen vielä hetkeksi."
+- "Aiemmin mainitsitte [henkilön/paikan] — haluaisin kuulla siitä lisää."
+
+Tämän päivän pääaihe on "${vars.todays_topic_label}", koska siitä ei ole vielä puhuttu syvällisesti. Mene siihen aiheeseen luontevasti — mutta ÄLÄ kysy aiheista jotka on jo merkitty "käsitelty hyvin".`
+  : `Tämä on TEIDÄN ENSIMMÄINEN puhelunne ${vars.elder_first_name}n kanssa. Aloita siis kevyesti tästä päivästä, älä syvistä elämänkysymyksistä.`}
+
+### SÄÄNTÖ 2 — ÄLÄ KIITTELE, ÄLÄ INNOSTU LIIKAA
+
+KIELLETYT sanat ja ilmaisut (käytä korkeintaan KERRAN puhelun aikana, ei joka vuorossa):
+- "Kiitos kun kerroitte" / "Kiitos kun jaoitte"
+- "Mahtavaa", "Ihanaa", "Upeaa", "Wau"
+- "Olipa mukavaa kuulla"
+- "Todella hienoa"
+- "Olen niin iloinen että kerroitte"
+- "Miten kaunis muisto"
+- "Voi kuinka koskettavaa"
+
+KÄYTÄ NÄITÄ vastaanotossa: "Niin.", "Aha.", "Mm.", "Vai niin.", "Joo.", "Hyvä."
+
+Suomalaiset eivät kiittele tai ylistä. Maanläheinen, vähäeleinen, rehellinen. Liika innostus = teennäinen.
+
+### SÄÄNTÖ 3 — ÄLÄ KYSY AVOIMIA "KERTOKAA JOTAIN" -KYSYMYKSIÄ
+
+KIELLETYT kysymystyypit:
+- "Kertokaa lapsuudestanne." ← liian avoin, vanhus jää tyhjäksi
+- "Kertokaa jotain äidistänne." ← liian avoin
+- "Mitä mieleenne tulee koulusta?" ← liian avoin
+- "Mitä haluaisitte kertoa?" ← passivoi vanhuksen, jättää ohjat hänelle
+
+KÄYTÄ SEN SIJAAN konkreettisia, yksiselitteisiä kysymyksiä joihin on helppo vastata yhdellä faktalla:
+- "Missä asuitte kun olitte 7-vuotias?"
+- "Mikä oli äitinne nimi? Entä syntymävuosi?"
+- "Kuka oli teidän ekan luokan opettaja?"
+- "Kuinka paljon teillä oli sisaruksia? Sanotteko nimet ja iät vanhimmasta nuorimpaan."
+- "Mitä isänne teki työkseen? Missä paikassa?"
+- "Mihin aikaan päivästä teillä syötiin yhdessä?"
+
+Olet HAASTATTELIJA, et juttelukumppani. Konkretia synnyttää muistoja. Avoin kysymys saa vanhuksen pyörimään yleisellä tasolla. Kun saat konkreettisen vastauksen (nimi, paikka, vuosi), syvennä siitä.
+
+---
 
 ## KUKA ${vars.elder_name.toUpperCase()} ON
 
@@ -106,13 +163,13 @@ ${vars.in_progress_topics || "Ei vielä aloitettuja aiheita."}
 
 Aihe: ${vars.todays_topic_label}
 Syy valinnalle: ${vars.todays_topic_reason}
-Ehdotettu avauskysymys: ${vars.todays_opening_question}
+Ehdotettu konkreettinen avauskysymys: ${vars.todays_opening_question}
 
 Käytä avauskysymystä ohjeena, ei pakollisena. Jos vanhus aloittaa itse jostain muusta, seuraa häntä — hänen omat aiheensa ovat arvokkaampia kuin sinun suunnittelemasi.
 
-## AIEMMAT PUHELUT
+## AIEMMAT PUHELUT — LUE TARKASTI
 
-Viimeisimmät 2 puhelua lyhyesti:
+Viimeisimmät puhelut:
 ${vars.last_call_summaries || "Tämä on ensimmäinen puhelu."}
 
 Kauniita hetkiä joista hän on kertonut:
@@ -121,13 +178,6 @@ ${vars.recent_quotes || "—"}
 ## TÄRKEÄ MUISTIN SÄÄNTÖ
 
 ${vars.elder_first_name} on syntynyt ${vars.birth_year}. Hän muistaa oman elämänsä vuodesta ${vars.own_memory_start_year} eteenpäin (n. 7-vuotiaasta). Sitä aiempia aikoja ÄLÄ kysy muodossa "muistatko kun...".
-
-Kysy sen sijaan:
-- "Mitä sinulle kerrottiin..."
-- "Mitä äitisi kertoi siitä ajasta..."
-- "Puhuttiinko kotona niistä ajoista?"
-
-1940-luvulla syntyneet eivät muista sotaa tai evakkoa itse — vain vanhempien kertomuksia. Kunnioita tätä.
 
 Painopiste keskustelussa: ikävuodet 10–25 ovat muistirikkain ajanjakso. Älä kuitenkaan pakota kronologiaa — vanhus itse liikkuu ajassa vapaasti.
 
@@ -352,21 +402,21 @@ Aloita lämpimästi, kutsumanimellä:
 
 // ============= AIHEEN VALINTA =============
 const TOPIC_OPENINGS: Record<string, string> = {
-  lapsuus: "Kertoisitteko vähän lapsuudestanne — mitä mieleenne tulee ensimmäisenä kun ajattelette sitä aikaa?",
-  vanhemmat: "Millainen äitinne oli? Haluaisin kuulla hänestä.",
-  sisarukset: "Oliko teillä sisaruksia — millaista yhdessä oli?",
-  koulu: "Muistatteko kouluaikoja — ensimmäisiä koulupäiviä, opettajia, kavereita?",
-  nuoruus: "Millaista oli olla nuori teidän aikaanne?",
-  kotoa_lahto: "Kertoisitteko siitä ajasta kun lähditte pois kotoa. Millainen se päivä oli?",
-  tyo: "Ensimmäinen työpaikka — mikä se oli ja miltä se tuntui?",
-  parisuhde: "Miten tapasitte puolisonne?",
-  lasten_synty: "Muistatteko kun lapsenne syntyi? Millainen se päivä oli?",
-  keski_ika: "Mikä on ollut elämänne merkittävin käännekohta?",
-  harrastukset: "Mitä teitte vapaa-ajallanne silloin nuorempana — mitä jäi mieleen?",
-  matkat: "Kertoisitteko jostain matkasta joka jäi mieleen.",
-  menetykset: "Onko elämässänne ollut ajanjaksoa joka on ollut vaikea mutta opettanut paljon?",
-  elakkeelle: "Miltä tuntui jäädä eläkkeelle?",
-  arvot: "Mikä on tärkeintä mitä haluaisitte että lapsenlapsenne tietäisivät elämästä?",
+  lapsuus: "Missä asuitte kun olitte ihan pieni? Sanokaa paikan nimi tarkasti.",
+  vanhemmat: "Mikä oli äitinne kokonimi? Entä syntymävuosi?",
+  sisarukset: "Kuinka paljon teillä oli sisaruksia? Sanokaa nimet vanhimmasta nuorimpaan.",
+  koulu: "Missä koulussa kävitte ekat luokat? Mikä oli ekan opettajan nimi?",
+  nuoruus: "Minkä ikäisenä menitte ensimmäiseen tanssiin? Missä se tanssipaikka oli?",
+  kotoa_lahto: "Minä vuonna lähditte kotoa pois? Mihin paikkaan menitte ensin?",
+  tyo: "Mikä oli ensimmäinen palkkatyönne? Kenen palveluksessa?",
+  parisuhde: "Missä paikassa tapasitte puolisonne ensimmäisen kerran?",
+  lasten_synty: "Minä vuonna ensimmäinen lapsenne syntyi? Missä sairaalassa tai kotona?",
+  keski_ika: "Missä asuitte kun olitte 40-vuotias? Mitä työtä teitte silloin?",
+  harrastukset: "Mitä teitte sunnuntai-iltapäivisin nuorena? Yksi konkreettinen asia.",
+  matkat: "Mikä oli ensimmäinen matka jonka teitte ulkomaille? Mihin maahan?",
+  menetykset: "Onko joku läheinen ihminen joka jäi mieleenne erityisellä tavalla? Sanokaa hänen nimensä.",
+  elakkeelle: "Minä vuonna jäitte eläkkeelle? Mistä työpaikasta?",
+  arvot: "Mikä on yksi neuvo jonka antaisitte 20-vuotiaalle ihmiselle?",
 };
 
 async function getCallCount(elderId: string): Promise<number> {
@@ -408,36 +458,51 @@ async function selectTodaysTopic(elderId: string): Promise<TopicSelection> {
     };
   }
 
-  // 2. Hae coverage_mapista sopiva aihe
+  // 2. Hae coverage_mapista sopiva aihe — VAIN aiheet jotka eivät ole jo "well_covered"
   const { data: coverageRows } = await supabase
     .from("coverage_map")
-    .select("id, life_stage, theme, status, depth_score, priority, requires_trust_first")
+    .select("id, life_stage, theme, status, depth_score, priority, requires_trust_first, last_discussed")
     .eq("elder_id", elderId)
     .in("status", ["not_started", "in_progress"])
     .order("priority", { ascending: false })
     .order("depth_score", { ascending: true });
 
+  const callCount = await getCallCount(elderId);
+
   if (!coverageRows || coverageRows.length === 0) {
     return {
       label: "Vapaa keskustelu",
-      reason: "Haluaisimme kuulla lisää siitä mikä sinulle on tärkeää juuri nyt",
-      opening: "Mitä mielessä tänään? Onko ollut jokin muisto tai ajatus joka on käynyt mielessä?",
+      reason: "Kaikki perusaiheet ovat jo käsiteltyjä — kuullaan mitä mielessä juuri nyt",
+      opening: callCount > 0
+        ? "Mitä on viime aikoina tullut mieleen mistä haluaisitte kertoa? Vaikka aivan pieni asia."
+        : "Mitä mielessä tänään? Onko joku muisto käynyt mielessä?",
       source: "open",
     };
   }
 
   // Suodatus: trust_first vaatii että ~3 viikkoa puheluja takana
-  const callCount = await getCallCount(elderId);
   const canTrust = callCount >= 6;
-  const filtered = canTrust ? coverageRows : coverageRows.filter((r) => !r.requires_trust_first);
+  let filtered = canTrust ? coverageRows : coverageRows.filter((r) => !r.requires_trust_first);
+
+  // Jos aiempia puheluja on, priorisoi "in_progress" -aiheet (jatka kesken jäänyttä)
+  // ennen "not_started" -aiheita.
+  if (callCount > 0) {
+    const inProgress = filtered.filter((r) => r.status === "in_progress");
+    if (inProgress.length > 0) {
+      filtered = inProgress;
+    }
+  }
+
   const chosen = filtered[0] || coverageRows[0];
 
   return {
     label: chosen.theme || chosen.life_stage,
     reason: callCount === 0
       ? "Tämä on ensimmäinen keskustelumme — aloitetaan kevyesti"
-      : "Tätä aluetta ei ole vielä syvennetty",
-    opening: TOPIC_OPENINGS[chosen.life_stage] || `Kerro minulle vähän aiheesta: ${chosen.theme}`,
+      : chosen.status === "in_progress"
+        ? "Tästä puhuttiin viimeksi mutta jäi kesken — palataan siihen"
+        : "Tätä aluetta ei ole vielä käsitelty",
+    opening: TOPIC_OPENINGS[chosen.life_stage] || `Mainitsisitteko yhden konkreettisen asian aiheesta: ${chosen.theme}`,
     source: "coverage",
     coverage_id: chosen.id,
   };
@@ -584,7 +649,7 @@ Deno.serve(async (req) => {
         .eq("elder_id", elderId)
         .eq("call_type", "muistoissa")
         .order("called_at", { ascending: false })
-        .limit(2),
+        .limit(3),
       supabase
         .from("legacy_highlights")
         .select("quote, target_chapter, created_at")
@@ -651,14 +716,21 @@ Deno.serve(async (req) => {
       .join(", ") || "";
 
     // 7. Aiemmat puhelut + sitaatit
+    // Jos ai_summary puuttuu, käytetään transkriptin keskimmäistä/loppuosaa
+    // (ei alkua, koska alku on vain tervehdys eikä kerro mistä puhuttiin).
     const lastCalls = callsResult.data || [];
     const lastCallSummaries = lastCalls
       .map((c, i) => {
         const date = c.called_at ? new Date(c.called_at).toLocaleDateString("fi-FI") : "—";
-        const summary = c.ai_summary || (c.transcript ? c.transcript.slice(0, 200) + "…" : "Ei yhteenvetoa");
-        return `${i + 1}. (${date}) ${summary}`;
+        let summary = c.ai_summary;
+        if (!summary && c.transcript) {
+          const t = c.transcript;
+          // Ota viimeinen 600 merkkiä (puhelun loppukeskustelu kertoo missä oltiin)
+          summary = t.length > 600 ? "…" + t.slice(-600) : t;
+        }
+        return `${i + 1}. (${date}) ${summary || "Ei yhteenvetoa — käsittelemättä"}`;
       })
-      .join("\n") || "";
+      .join("\n\n") || "";
 
     const recentQuotes = (highlightsResult.data || [])
       .map((h) => `"${h.quote}"${h.target_chapter ? ` — luku: ${h.target_chapter}` : ""}`)
@@ -703,7 +775,11 @@ Deno.serve(async (req) => {
       now,
     });
 
-    const firstMessage = `Hei ${firstName}! Aina täällä. Onko teillä hetki jutella?`;
+    // Kontekstuaalinen avausviesti — viittaa edellisiin puheluihin jos niitä on
+    const hasPreviousCalls = lastCalls.length > 0;
+    const firstMessage = hasPreviousCalls
+      ? `Hei ${firstName}, Aina täällä taas. Onko teillä hetki jutella?`
+      : `Hei ${firstName}! Aina täällä. Onko teillä hetki jutella?`;
 
     console.log(`[vapi-muistoissa-request] Returning Muistoissa-assistant for ${elderFullName}, topic=${topic.label} (${topic.source})`);
 
