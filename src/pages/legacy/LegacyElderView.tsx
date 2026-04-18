@@ -42,7 +42,8 @@ const LegacyElderView = () => {
         const avg = cov.reduce((a, c) => a + (c.depth_score ?? 0), 0) / cov.length;
         setCoveragePct(Math.round(avg));
       }
-      setHighlight(hl);
+      setHighlights(hl ?? []);
+      setHighlightIdx(0);
       setObservations(obs ?? []);
       setCurrentTopic(topic ?? null);
       const callsArr = calls ?? [];
