@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Check, Clock, Circle, X } from 'lucide-react';
 import { lifeStageLabel, STATUS_LABELS } from '@/lib/legacy';
+import { calculateBookProgress, type BookFormat } from '@/lib/bookProgress';
 
 interface Row {
   id: string;
@@ -19,22 +20,40 @@ const LegacyProgress = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [target, setTarget] = useState<string>('—');
 
+  const [overall, setOverall] = useState(0);
+
   useEffect(() => {
     if (!elderId) return;
     const load = async () => {
-      const [{ data: cov }, { data: sub }] = await Promise.all([
+      const [{ data: cov }, { data: chapters }, { data: sub }] = await Promise.all([
         supabase.from('coverage_map').select('id, life_stage, theme, depth_score, status, priority').eq('elder_id', elderId).order('priority', { ascending: false }),
-        supabase.from('legacy_subscriptions').select('target_completion_date').eq('elder_id', elderId).maybeSingle(),
+        supabase.from('book_chapters').select('life_stage, word_count, target_word_count, status, included_in_novella').eq('elder_id', elderId),
+        supabase.from('legacy_subscriptions').select('target_completion_date, book_format').eq('elder_id', elderId).maybeSingle(),
       ]);
       setRows(cov ?? []);
       if (sub?.target_completion_date) {
         setTarget(new Date(sub.target_completion_date).toLocaleDateString('fi-FI', { month: 'numeric', year: 'numeric' }));
       }
+      const format = (sub?.book_format as BookFormat) || 'book';
+      const progress = calculateBookProgress(
+        (chapters ?? []).map((c) => ({
+          life_stage: c.life_stage,
+          word_count: c.word_count || 0,
+          target_word_count: c.target_word_count || 3300,
+          status: c.status || 'empty',
+          included_in_novella: c.included_in_novella || false,
+        })),
+        (cov ?? []).map((c) => ({
+          life_stage: c.life_stage,
+          depth_score: c.depth_score ?? 0,
+          status: c.status ?? 'not_started',
+        })),
+        format,
+      );
+      setOverall(progress.overallPercent);
     };
     load();
   }, [elderId]);
-
-  const overall = rows.length ? Math.round(rows.reduce((s, r) => s + (r.depth_score ?? 0), 0) / rows.length) : 0;
 
   return (
     <div className="space-y-6">

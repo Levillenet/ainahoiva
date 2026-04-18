@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone, MessageSquare, Pencil, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { startOfWeek, lifeStageLabel } from '@/lib/legacy';
+import { calculateBookProgress, type BookFormat } from '@/lib/bookProgress';
 import { toast } from '@/hooks/use-toast';
 
 const LegacyElderView = () => {
@@ -23,10 +24,11 @@ const LegacyElderView = () => {
   useEffect(() => {
     if (!elderId) return;
     const load = async () => {
-      const [{ data: e }, { data: sub }, { data: cov }, { data: hl }, { data: obs }, { data: calls }, { data: topic }] = await Promise.all([
+      const [{ data: e }, { data: sub }, { data: cov }, { data: chapters }, { data: hl }, { data: obs }, { data: calls }, { data: topic }] = await Promise.all([
         supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
-        supabase.from('legacy_subscriptions').select('target_completion_date, status').eq('elder_id', elderId).maybeSingle(),
-        supabase.from('coverage_map').select('depth_score').eq('elder_id', elderId),
+        supabase.from('legacy_subscriptions').select('target_completion_date, status, book_format').eq('elder_id', elderId).maybeSingle(),
+        supabase.from('coverage_map').select('life_stage, depth_score, status').eq('elder_id', elderId),
+        supabase.from('book_chapters').select('life_stage, word_count, target_word_count, status, included_in_novella').eq('elder_id', elderId),
         supabase.from('legacy_highlights').select('quote, created_at, context').eq('elder_id', elderId).order('created_at', { ascending: false }),
         supabase.from('legacy_observations').select('id, title, description, type, read_by_family, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(3),
         supabase.from('call_reports').select('duration_seconds, mood_score, called_at').eq('elder_id', elderId).eq('call_type', 'muistoissa').gte('called_at', startOfWeek().toISOString()),
@@ -38,10 +40,23 @@ const LegacyElderView = () => {
       if (sub?.target_completion_date) {
         setTarget(new Date(sub.target_completion_date).toLocaleDateString('fi-FI', { month: 'numeric', year: 'numeric' }));
       }
-      if (cov && cov.length) {
-        const avg = cov.reduce((a, c) => a + (c.depth_score ?? 0), 0) / cov.length;
-        setCoveragePct(Math.round(avg));
-      }
+      const format = (sub?.book_format as BookFormat) || 'book';
+      const progress = calculateBookProgress(
+        (chapters ?? []).map((c) => ({
+          life_stage: c.life_stage,
+          word_count: c.word_count || 0,
+          target_word_count: c.target_word_count || 3300,
+          status: c.status || 'empty',
+          included_in_novella: c.included_in_novella || false,
+        })),
+        (cov ?? []).map((c) => ({
+          life_stage: c.life_stage,
+          depth_score: c.depth_score ?? 0,
+          status: c.status ?? 'not_started',
+        })),
+        format,
+      );
+      setCoveragePct(progress.overallPercent);
       setHighlights(hl ?? []);
       setHighlightIdx(0);
       setObservations(obs ?? []);
