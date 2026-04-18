@@ -4,8 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2, PenLine, History, Wand2, ShieldCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import {
+  calculateBookProgress,
+  formatProgressDescription,
+  BOOK_FORMATS,
+  type BookFormat,
+  type BookProgress,
+} from '@/lib/bookProgress';
 
 type ChapterStatus = 'empty' | 'draft' | 'reviewed' | 'final';
 
@@ -16,9 +24,17 @@ type Chapter = {
   title: string;
   content_markdown: string;
   word_count: number;
+  target_word_count: number;
+  included_in_novella: boolean;
   status: ChapterStatus;
   last_generated_at: string | null;
   last_edited_at: string | null;
+};
+
+type CoverageRow = {
+  life_stage: string;
+  depth_score: number;
+  status: string;
 };
 
 type ProfileSummary = {
@@ -75,6 +91,8 @@ export default function LegacyBookView() {
   const [showNotes, setShowNotes] = useState(false);
   const [compiling, setCompiling] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [bookFormat, setBookFormat] = useState<BookFormat>('book');
+  const [progress, setProgress] = useState<BookProgress | null>(null);
   const [consistencyIssues, setConsistencyIssues] = useState<Array<{
     severity: string;
     title: string;
@@ -86,7 +104,7 @@ export default function LegacyBookView() {
   const loadAll = async () => {
     if (!elderId) return;
     setLoading(true);
-    const [elderRes, chaptersRes, profileRes, callsRes, notesRes] = await Promise.all([
+    const [elderRes, chaptersRes, profileRes, callsRes, notesRes, coverageRes, subRes] = await Promise.all([
       supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
       supabase
         .from('book_chapters')
@@ -109,6 +127,15 @@ export default function LegacyBookView() {
         .from('chapter_notes')
         .select('*')
         .eq('elder_id', elderId),
+      supabase
+        .from('coverage_map')
+        .select('life_stage, depth_score, status')
+        .eq('elder_id', elderId),
+      supabase
+        .from('legacy_subscriptions')
+        .select('book_format')
+        .eq('elder_id', elderId)
+        .maybeSingle(),
     ]);
 
     if (notesRes.data) {
@@ -119,19 +146,38 @@ export default function LegacyBookView() {
       setChapterNotes(notesByStage);
     }
 
+    const format = ((subRes.data as { book_format?: string } | null)?.book_format as BookFormat) || 'book';
+    setBookFormat(format);
+
     if (elderRes.data) setElderName(elderRes.data.full_name);
+    let chaptersData: Chapter[] = [];
     if (chaptersRes.data) {
-      const list = chaptersRes.data as Chapter[];
-      setChapters(list);
+      chaptersData = chaptersRes.data as Chapter[];
+      setChapters(chaptersData);
       setSelectedChapter((prev) => {
         if (prev) {
-          const refreshed = list.find((c) => c.id === prev.id);
+          const refreshed = chaptersData.find((c) => c.id === prev.id);
           if (refreshed) return refreshed;
         }
-        const firstWithContent = list.find((c) => c.content_markdown?.trim().length > 0);
-        return firstWithContent ?? list[0] ?? null;
+        const firstWithContent = chaptersData.find((c) => c.content_markdown?.trim().length > 0);
+        return firstWithContent ?? chaptersData[0] ?? null;
       });
     }
+
+    const coverageData = (coverageRes.data as CoverageRow[]) || [];
+    const calculatedProgress = calculateBookProgress(
+      chaptersData.map(c => ({
+        life_stage: c.life_stage,
+        word_count: c.word_count || 0,
+        target_word_count: c.target_word_count || 3300,
+        status: c.status,
+        included_in_novella: c.included_in_novella || false,
+      })),
+      coverageData,
+      format
+    );
+    setProgress(calculatedProgress);
+
     if (profileRes.data) setProfile(profileRes.data as ProfileSummary);
     if (callsRes.data) {
       setUnprocessedCalls(
@@ -145,6 +191,7 @@ export default function LegacyBookView() {
     }
     setLoading(false);
   };
+
 
   useEffect(() => {
     loadAll();
@@ -281,11 +328,6 @@ export default function LegacyBookView() {
     return <div className="text-cream/60">Ladataan kirjaa…</div>;
   }
 
-  const totalWords = chapters.reduce((sum, c) => sum + (c.word_count || 0), 0);
-  const completedChapters = chapters.filter(
-    (c) => c.status === 'final' || c.status === 'reviewed',
-  ).length;
-  const draftChapters = chapters.filter((c) => c.status === 'draft').length;
 
   return (
     <div className="space-y-6">
@@ -304,22 +346,60 @@ export default function LegacyBookView() {
         <span />
       </div>
 
-      <Card className="bg-card border-border">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-cream/70">
-            <span>
-              <span className="text-cream font-medium">{totalWords.toLocaleString('fi-FI')}</span>{' '}
-              sanaa
-            </span>
-            <span>
-              <span className="text-cream font-medium">{completedChapters}</span>/15 lukua valmiina
-            </span>
-            <span>
-              <span className="text-cream font-medium">{draftChapters}</span> luonnosta
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      {progress && (
+        <Card className="bg-card border-border">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-xs text-cream/50 uppercase tracking-wide">
+                  {BOOK_FORMATS[bookFormat].label} — edistyminen
+                </p>
+                <p className="text-3xl text-gold font-medium mt-1">
+                  {progress.overallPercent}%
+                </p>
+              </div>
+              <div className="text-right text-sm text-cream/70 space-y-0.5">
+                <div>
+                  <span className="text-cream font-medium">
+                    {progress.totalWords.toLocaleString('fi-FI')}
+                  </span>{' '}
+                  / {progress.targetWords.toLocaleString('fi-FI')} sanaa
+                </div>
+                <div>
+                  {progress.chaptersReady}/{progress.chaptersTotal} lukua valmiina
+                </div>
+                <div className="text-xs text-cream/50">
+                  {BOOK_FORMATS[bookFormat].pageEstimate}
+                </div>
+              </div>
+            </div>
+
+            <Progress value={progress.overallPercent} className="h-2" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="p-3 rounded-md bg-muted/10 border border-border">
+                <p className="text-xs text-cream/50">Sisältö</p>
+                <p className="text-lg text-cream font-medium">{progress.wordsPercent}%</p>
+                <p className="text-[10px] text-cream/40">50 % painoarvosta</p>
+              </div>
+              <div className="p-3 rounded-md bg-muted/10 border border-border">
+                <p className="text-xs text-cream/50">Luvut valmiina</p>
+                <p className="text-lg text-cream font-medium">{progress.statusPercent}%</p>
+                <p className="text-[10px] text-cream/40">30 % painoarvosta</p>
+              </div>
+              <div className="p-3 rounded-md bg-muted/10 border border-border">
+                <p className="text-xs text-cream/50">Aiheet käsitelty</p>
+                <p className="text-lg text-cream font-medium">{progress.coveragePercent}%</p>
+                <p className="text-[10px] text-cream/40">20 % painoarvosta</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-cream/70 italic">
+              {formatProgressDescription(progress)}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {unprocessedCalls.length > 0 && (
         <Card className="bg-amber-950/20 border-amber-800/50">
@@ -525,6 +605,9 @@ export default function LegacyBookView() {
             {chapters.map((chapter) => {
               const statusInfo = STATUS_LABELS[chapter.status];
               const isSelected = selectedChapter?.id === chapter.id;
+              const isInCurrentFormat = bookFormat === 'book' || chapter.included_in_novella;
+              const target = chapter.target_word_count || 3300;
+              const chapterProgress = Math.min(100, ((chapter.word_count || 0) / target) * 100);
               return (
                 <button
                   key={chapter.id}
@@ -533,18 +616,31 @@ export default function LegacyBookView() {
                     isSelected
                       ? 'bg-muted/30 border-gold/50'
                       : 'bg-muted/5 border-border hover:bg-muted/15'
-                  }`}
+                  } ${!isInCurrentFormat ? 'opacity-40' : ''}`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-cream/50">Luku {chapter.chapter_number}</span>
+                  <div className="flex items-center justify-between mb-1 gap-2">
+                    <span className="text-xs text-cream/50 flex items-center gap-1.5">
+                      Luku {chapter.chapter_number}
+                      {!isInCurrentFormat && bookFormat === 'novella' && (
+                        <span className="text-[9px] text-cream/40">(ei novellissa)</span>
+                      )}
+                    </span>
                     <Badge variant="outline" className={`text-[10px] ${statusInfo.className}`}>
                       {statusInfo.label}
                     </Badge>
                   </div>
                   <div className="text-sm text-cream font-medium">{chapter.title}</div>
-                  {chapter.word_count > 0 && (
-                    <div className="text-xs text-cream/50 mt-1">{chapter.word_count} sanaa</div>
-                  )}
+                  <div className="mt-2 space-y-1">
+                    <div className="h-1 bg-muted/30 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gold/60 transition-all"
+                        style={{ width: `${chapterProgress}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-cream/50">
+                      {chapter.word_count || 0} / {target} sanaa
+                    </div>
+                  </div>
                 </button>
               );
             })}

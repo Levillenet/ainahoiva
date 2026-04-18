@@ -179,6 +179,7 @@ const LegacyDashboard = () => {
           target_completion_date: targetDate.toISOString().slice(0, 10),
           book_target_chapters: 15,
           weekly_call_count: 2,
+          book_format: 'book',
         }, { onConflict: 'elder_id' });
       if (subErr) throw new Error('Tilaus: ' + subErr.message);
 

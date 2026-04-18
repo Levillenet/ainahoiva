@@ -11,8 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ArrowLeft, Plus, Trash2, Save, User, BookOpen } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, User, BookOpen, BookText } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { BOOK_FORMATS, type BookFormat } from '@/lib/bookProgress';
 
 const schema = z.object({
   // Elders-tiedot
@@ -52,6 +53,7 @@ const LegacyEdit = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [bookFormat, setBookFormat] = useState<BookFormat>('book');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -93,11 +95,14 @@ const LegacyEdit = () => {
     if (!elderId) return;
     let cancelled = false;
     (async () => {
-      const [{ data: elder }, { data: profile }] = await Promise.all([
+      const [{ data: elder }, { data: profile }, { data: sub }] = await Promise.all([
         supabase.from('elders').select('full_name, phone_number, date_of_birth, address, postal_code').eq('id', elderId).maybeSingle(),
         supabase.from('legacy_profile').select('*').eq('elder_id', elderId).maybeSingle(),
+        supabase.from('legacy_subscriptions').select('book_format').eq('elder_id', elderId).maybeSingle(),
       ]);
       if (cancelled) return;
+      const subFormat = (sub as { book_format?: string } | null)?.book_format;
+      if (subFormat === 'book' || subFormat === 'novella') setBookFormat(subFormat);
 
       const spouse = (profile?.spouse_info ?? null) as { name?: string; status?: string } | null;
       const parents = (profile?.parents_info ?? null) as { mother?: { name?: string; note?: string }; father?: { name?: string; note?: string }; siblings?: string } | null;
@@ -172,6 +177,12 @@ const LegacyEdit = () => {
         onboarding_completed: true,
       }, { onConflict: 'elder_id' });
       if (profileErr) throw new Error('Profiili: ' + profileErr.message);
+
+      const { error: subErr } = await supabase
+        .from('legacy_subscriptions')
+        .update({ book_format: bookFormat })
+        .eq('elder_id', elderId);
+      if (subErr) console.warn('Tilauksen muoto-päivitys:', subErr.message);
 
       toast({ title: 'Tiedot päivitetty', description: 'Muutokset tulevat voimaan seuraavalla puhelulla.' });
       navigate(`/dashboard/muistoissa/${elderId}`);
@@ -383,6 +394,66 @@ const LegacyEdit = () => {
             <Field label="Erityistä Ainan tulisi tietää">
               <Textarea {...form.register('special_notes')} rows={3} />
             </Field>
+          </CardContent>
+        </Card>
+
+        {/* Kirjan muoto */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-cream flex items-center gap-2 text-base">
+              <BookText className="w-5 h-5 text-gold" />
+              Kirjan muoto
+            </CardTitle>
+            <p className="text-xs text-cream/60 mt-1">
+              Voit vaihtaa muotoa myös kesken projektin. Jos vaihdat novellista kirjaksi, kerätään
+              lisää aineistoa. Jos vaihdat kirjasta novelliin, pääset valmiiksi nopeammin.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(Object.keys(BOOK_FORMATS) as BookFormat[]).map((format) => {
+                const f = BOOK_FORMATS[format];
+                const isSelected = bookFormat === format;
+                return (
+                  <button
+                    key={format}
+                    type="button"
+                    onClick={() => setBookFormat(format)}
+                    className={`text-left p-4 rounded-md border-2 transition-all ${
+                      isSelected
+                        ? 'border-gold bg-gold/10'
+                        : 'border-border bg-muted/5 hover:border-gold/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-cream font-medium text-sm">{f.label}</p>
+                      {isSelected && <span className="text-[10px] text-gold">✓ Valittu</span>}
+                    </div>
+                    <p className="text-xs text-cream/70 leading-relaxed mb-3">{f.description}</p>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <p className="text-cream/50">Pituus</p>
+                        <p className="text-cream">{f.pageEstimate}</p>
+                      </div>
+                      <div>
+                        <p className="text-cream/50">Luvut</p>
+                        <p className="text-cream">{f.chapterCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-cream/50">Tilaus</p>
+                        <p className="text-cream">{f.subscriptionMonths} kk</p>
+                      </div>
+                      <div>
+                        <p className="text-cream/50">Hinta</p>
+                        <p className="text-cream">
+                          {f.priceMonthly} €/kk + {f.pricePrintedCopy} €
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 

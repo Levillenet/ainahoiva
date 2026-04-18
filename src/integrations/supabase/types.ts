@@ -21,12 +21,14 @@ export type Database = {
           created_at: string | null
           elder_id: string
           id: string
+          included_in_novella: boolean | null
           last_edited_at: string | null
           last_generated_at: string | null
           life_stage: string
           prose_generated_at: string | null
           prose_source_notes_version: number | null
           status: string | null
+          target_word_count: number | null
           title: string
           version: number | null
           word_count: number | null
@@ -37,12 +39,14 @@ export type Database = {
           created_at?: string | null
           elder_id: string
           id?: string
+          included_in_novella?: boolean | null
           last_edited_at?: string | null
           last_generated_at?: string | null
           life_stage: string
           prose_generated_at?: string | null
           prose_source_notes_version?: number | null
           status?: string | null
+          target_word_count?: number | null
           title: string
           version?: number | null
           word_count?: number | null
@@ -53,12 +57,14 @@ export type Database = {
           created_at?: string | null
           elder_id?: string
           id?: string
+          included_in_novella?: boolean | null
           last_edited_at?: string | null
           last_generated_at?: string | null
           life_stage?: string
           prose_generated_at?: string | null
           prose_source_notes_version?: number | null
           status?: string | null
+          target_word_count?: number | null
           title?: string
           version?: number | null
           word_count?: number | null
@@ -773,6 +779,7 @@ export type Database = {
       }
       legacy_subscriptions: {
         Row: {
+          book_format: string | null
           book_target_chapters: number | null
           created_at: string | null
           elder_id: string
@@ -783,6 +790,7 @@ export type Database = {
           weekly_call_count: number | null
         }
         Insert: {
+          book_format?: string | null
           book_target_chapters?: number | null
           created_at?: string | null
           elder_id: string
@@ -793,6 +801,7 @@ export type Database = {
           weekly_call_count?: number | null
         }
         Update: {
+          book_format?: string | null
           book_target_chapters?: number | null
           created_at?: string | null
           elder_id?: string
