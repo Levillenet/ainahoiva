@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone, MessageSquare, Pencil } from 'lucide-react';
+import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone, MessageSquare, Pencil, BookOpen } from 'lucide-react';
 import { startOfWeek, lifeStageLabel } from '@/lib/legacy';
 import { toast } from '@/hooks/use-toast';
 
@@ -101,6 +101,16 @@ const LegacyElderView = () => {
             <Button variant="outline" size="sm">
               <Pencil className="w-3 h-3 mr-2" />
               Muokkaa tietoja
+            </Button>
+          </Link>
+          <Link to={`/dashboard/muistoissa/${elderId}/kirja`}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-gold/50 text-gold hover:bg-gold/10"
+            >
+              <BookOpen className="w-3 h-3 mr-2" />
+              Avaa kirja
             </Button>
           </Link>
           {import.meta.env.DEV && (

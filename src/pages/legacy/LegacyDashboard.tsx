@@ -326,6 +326,71 @@ const LegacyDashboard = () => {
       const { error: trErr } = await supabase.from('legacy_topic_requests').insert(topicRequests);
       if (trErr) throw new Error('Aihepyynnöt: ' + trErr.message);
 
+      // 7. Kirjailija-AI:n näytteenotto: kaksi valmiiksi kirjoitettua lukua + profile_summary
+      const { error: chKotoaErr } = await supabase.from('book_chapters').upsert(
+        {
+          elder_id: ritvaId,
+          chapter_number: 6,
+          life_stage: 'kotoa_lahto',
+          title: 'Kotoa lähtö',
+          content_markdown: `Kun Ritva astui junaan Viipurin asemalla toukokuun viimeisenä päivänä vuonna 1962, hän oli yhdeksäntoistavuotias. Äiti oli itkenyt aamulla keittiössä pöydän ääressä, kädet polvilla. Isä ei ollut sanonut paljoakaan, vain antanut hänelle ruskean pahvisen matkalaukun ja sata markkaa kirjekuoressa.
+
+"Kyllä sinä pärjäät", isä oli sanonut. "Olet aina pärjännyt."
+
+Juna kulki hitaasti kohti Helsinkiä. Ikkunoista näkyi toukokuun Suomi — vasta puhjenneet koivut, vihreää vielä ohutta ruohoa, järvien pinnat tyyninä kuin lasi. Ritva muistaa istuneensa ikkunapaikalla ja katsoneensa, kuinka maisemat vaihtuivat tutuista vieraisiin. Matkalaukku pysyi hänen jalkojensa välissä koko matkan.
+
+Helsingissä häntä odotti Liisa, ompelukoulusta tuttu tyttö Ylihärmästä. He olivat sopineet asuvansa yhdessä Tähtitorninkadulla, kolmannen kerroksen ullakkohuoneessa. Liisa puhui enemmän kuin Ritva mutta oli lempeä ja kärsivällinen. Hän lauloi aamuisin kahvia keittäessään, ja se teki Ritvan koti-ikävästä vähemmän raskasta.
+
+Ensimmäiset viikot Helsingissä olivat kaikkea kerralla. Kaupunki oli suurempi kuin Ritva oli osannut kuvitella. Raitiovaunut kolisivat Esplanadilla, kauppakeskuksissa oli enemmän valoa kuin hän oli tottunut, ja ihmisiä joka puolella. Hän muistaa kuinka hän seisoi ensimmäisenä iltana Tähtitorninkadun ikkunassa ja katsoi pihalle, missä joku soitti haitarista Kesämökkiä, ja ajatteli: minä olen nyt täällä. Tämä on nyt elämäni.`,
+          word_count: 237,
+          status: 'reviewed',
+          last_generated_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          last_edited_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        { onConflict: 'elder_id,life_stage' },
+      );
+      if (chKotoaErr) throw new Error('Kirjan luku 6: ' + chKotoaErr.message);
+
+      const { error: chTyoErr } = await supabase.from('book_chapters').upsert(
+        {
+          elder_id: ritvaId,
+          chapter_number: 7,
+          life_stage: 'tyo',
+          title: 'Työelämä',
+          content_markdown: `Rouva Saarnion ompelimo sijaitsi Töölössä, Mechelininkadun talossa kadun varrella. Ovelle oli ruuvattu pieni messinkikyltti: "Saarnio — pukuompelimo". Ritva astui sisään ensimmäisenä kesäaamuna 1962, kaksi viikkoa Helsinkiin saapumisensa jälkeen.
+
+Rouva Saarnio oli keski-ikäinen, hieman tiukkailmeinen nainen, jolla oli siistit valkoiset hiukset ja hyvin ryhdikäs olemus. Hän vilkaisi Ritvan pistoja — pikku näyte jonka tämä oli tehnyt Viipurissa — ja nyökkäsi lyhyesti. "Pistot ovat nätit", hän sanoi. "Ja sinä olet hiljainen. Se on hyvä."
+
+Töölön ompelimossa Ritva teki seuraavat kolmekymmentäkuusi vuotta elämästään. Hän aloitti juoksupoikana, nouti kankaita ja tarvikkeita, toi kahvia. Kolmen kuukauden kuluttua hänelle annettiin ensimmäiset helmat ommeltavaksi. Vuoden päästä hän teki jo kokonaisia pukuja.
+
+Rouva Saarnio piti hänestä erityisesti. "Ritva osaa kuunnella", hän sanoi kerran asiakkaalle. "Sen takia hän tietää mitä te haluatte ennen kuin te sen itse sanotte." Se oli suurin kehu jonka Ritva sai työuransa aikana.`,
+          word_count: 178,
+          status: 'draft',
+          last_generated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        { onConflict: 'elder_id,life_stage' },
+      );
+      if (chTyoErr) throw new Error('Kirjan luku 7: ' + chTyoErr.message);
+
+      const { error: psErr } = await supabase.from('profile_summary').upsert(
+        {
+          elder_id: ritvaId,
+          personality_notes:
+            'Ritva on rauhallinen ja hillitty. Ei puhu ylenmäärin, mutta kun puhuu, sanoo asioita tarkasti. Kunnioittaa vanhoja tapoja ja ihmisiä. Huumori kuivaa, toisinaan itseironista.',
+          speaking_style:
+            'Puhuu selkeällä kielellä, ei käytä vieraskielisiä sanoja. Käyttää silloin tällöin karjalaisia ilmaisuja ("piikana", "kylläkin", "justhiin"). Hiljentyy kun puhuu Paavosta tai menetyksistä.',
+          key_themes:
+            'Perhe (erityisesti äiti Maria), työ ja sen merkitys, koti ja paikan tunne, uskollisuus. Kauneutta etsii arjen yksityiskohdista.',
+          recurring_people:
+            'Maria (äiti, rauhallinen, tukipylväs), Jaakko (isä, puuseppä, vähäsanainen), Paavo (aviomies, kuollut 2008, Elannon ruokalasta), Liisa (nuoruudenystävä Ylihärmästä), Rouva Saarnio (työnantaja Töölössä), Anja ja Tuomo (omat lapset)',
+          sensitive_areas_learned:
+            'Eino-veli (sotalapsi Ruotsissa, ei palannut) — Ritva vaihtaa aihetta. Paavon kuolema (2008) — voi puhua mutta hiljenee. Evakkomatka Viipurista — puhuu lyhyesti, ei syvenny.',
+          last_updated: new Date().toISOString(),
+        },
+        { onConflict: 'elder_id' },
+      );
+      if (psErr) throw new Error('Profiiliyhteenveto: ' + psErr.message);
+
       toast({
         title: 'Ritva-testidata luotu',
         description: 'Vanhus näkyy nyt Muistoissa-listassa.',
