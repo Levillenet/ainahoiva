@@ -176,7 +176,6 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: CLAUDE_PROSE_MODEL,
         max_tokens: 3000,
-        temperature: 0.7,
         messages: [
           { role: "user", content: prompt },
         ],
