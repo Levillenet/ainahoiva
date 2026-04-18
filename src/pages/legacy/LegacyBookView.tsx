@@ -380,17 +380,17 @@ export default function LegacyBookView() {
               <div className="p-3 rounded-md bg-muted/10 border border-border">
                 <p className="text-xs text-cream/50">Sisältö</p>
                 <p className="text-lg text-cream font-medium">{progress.wordsPercent}%</p>
-                <p className="text-[10px] text-cream/40">50 % painoarvosta</p>
+                <p className="text-[10px] text-cream/40">70 % painoarvosta</p>
               </div>
               <div className="p-3 rounded-md bg-muted/10 border border-border">
                 <p className="text-xs text-cream/50">Luvut valmiina</p>
                 <p className="text-lg text-cream font-medium">{progress.statusPercent}%</p>
-                <p className="text-[10px] text-cream/40">30 % painoarvosta</p>
+                <p className="text-[10px] text-cream/40">20 % painoarvosta</p>
               </div>
               <div className="p-3 rounded-md bg-muted/10 border border-border">
                 <p className="text-xs text-cream/50">Aiheet käsitelty</p>
                 <p className="text-lg text-cream font-medium">{progress.coveragePercent}%</p>
-                <p className="text-[10px] text-cream/40">20 % painoarvosta</p>
+                <p className="text-[10px] text-cream/40">10 % painoarvosta</p>
               </div>
             </div>
 

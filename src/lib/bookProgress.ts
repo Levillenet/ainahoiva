@@ -109,9 +109,24 @@ export function calculateBookProgress(
     : 0;
   const coveragePercent = coverageAverage;
 
-  const overallPercent = Math.round(
-    wordsPercent * 0.5 + statusPercent * 0.3 + coveragePercent * 0.2
+  // Sanamäärä on dominoiva tekijä — kirja ei ole valmis ennen kuin sisältöä on kirjoitettu.
+  // Status ja kattavuus ovat tukimittareita: ne kertovat aiheiden käsittelystä,
+  // mutta eivät korvaa varsinaista proosaa.
+  let overallPercent = Math.round(
+    wordsPercent * 0.7 + statusPercent * 0.2 + coveragePercent * 0.1
   );
+
+  // Realistinen yläraja: jos sanoja on alle 10% tavoitteesta,
+  // kirja ei voi olla yli 20% valmis riippumatta status/coverage-arvoista.
+  // Tämä estää tilanteen jossa coverage_map vääristää valmiusasteen
+  // (esim. aihe merkitty käsitellyksi mutta proosaa ei ole vielä kirjoitettu).
+  if (wordsPercent < 10) {
+    overallPercent = Math.min(overallPercent, 20);
+  } else if (wordsPercent < 25) {
+    overallPercent = Math.min(overallPercent, 40);
+  } else if (wordsPercent < 50) {
+    overallPercent = Math.min(overallPercent, 65);
+  }
 
   const chaptersReady = relevantChapters.filter(
     (c) => c.status === 'reviewed' || c.status === 'final'
