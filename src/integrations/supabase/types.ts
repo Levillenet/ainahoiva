@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      book_chapters: {
+        Row: {
+          chapter_number: number
+          content_markdown: string | null
+          created_at: string | null
+          elder_id: string
+          id: string
+          last_edited_at: string | null
+          last_generated_at: string | null
+          life_stage: string
+          status: string | null
+          title: string
+          version: number | null
+          word_count: number | null
+        }
+        Insert: {
+          chapter_number: number
+          content_markdown?: string | null
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          last_edited_at?: string | null
+          last_generated_at?: string | null
+          life_stage: string
+          status?: string | null
+          title: string
+          version?: number | null
+          word_count?: number | null
+        }
+        Update: {
+          chapter_number?: number
+          content_markdown?: string | null
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          last_edited_at?: string | null
+          last_generated_at?: string | null
+          life_stage?: string
+          status?: string | null
+          title?: string
+          version?: number | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_chapters_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_reports: {
         Row: {
           ai_summary: string | null
@@ -108,6 +161,50 @@ export type Database = {
             columns: ["elder_id"]
             isOneToOne: false
             referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chapter_revisions: {
+        Row: {
+          ai_model_used: string | null
+          change_reason: string | null
+          chapter_id: string
+          content_markdown: string
+          created_at: string | null
+          created_by_ai: boolean | null
+          id: string
+          prompt_version: string | null
+          word_count: number | null
+        }
+        Insert: {
+          ai_model_used?: string | null
+          change_reason?: string | null
+          chapter_id: string
+          content_markdown: string
+          created_at?: string | null
+          created_by_ai?: boolean | null
+          id?: string
+          prompt_version?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          ai_model_used?: string | null
+          change_reason?: string | null
+          chapter_id?: string
+          content_markdown?: string
+          created_at?: string | null
+          created_by_ai?: boolean | null
+          id?: string
+          prompt_version?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapter_revisions_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "book_chapters"
             referencedColumns: ["id"]
           },
         ]
@@ -852,6 +949,50 @@ export type Database = {
             foreignKeyName: "missed_call_retries_elder_id_fkey"
             columns: ["elder_id"]
             isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_summary: {
+        Row: {
+          created_at: string | null
+          elder_id: string
+          id: string
+          key_themes: string | null
+          last_updated: string | null
+          personality_notes: string | null
+          recurring_people: string | null
+          sensitive_areas_learned: string | null
+          speaking_style: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          key_themes?: string | null
+          last_updated?: string | null
+          personality_notes?: string | null
+          recurring_people?: string | null
+          sensitive_areas_learned?: string | null
+          speaking_style?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          key_themes?: string | null
+          last_updated?: string | null
+          personality_notes?: string | null
+          recurring_people?: string | null
+          sensitive_areas_learned?: string | null
+          speaking_style?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_summary_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: true
             referencedRelation: "elders"
             referencedColumns: ["id"]
           },

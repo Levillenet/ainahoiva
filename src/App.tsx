@@ -24,6 +24,7 @@ import LegacyProgress from "./pages/legacy/LegacyProgress";
 import LegacyRequests from "./pages/legacy/LegacyRequests";
 import LegacyObservations from "./pages/legacy/LegacyObservations";
 import LegacyTestChat from "./pages/legacy/LegacyTestChat";
+import LegacyBookView from "./pages/legacy/LegacyBookView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="muistoissa/:elderId/pyynnot" element={<LegacyRequests />} />
               <Route path="muistoissa/:elderId/huomiot" element={<LegacyObservations />} />
               <Route path="muistoissa/:elderId/testaa" element={<LegacyTestChat />} />
+              <Route path="muistoissa/:elderId/kirja" element={<LegacyBookView />} />
               <Route path="asetukset" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
