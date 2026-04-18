@@ -182,22 +182,50 @@ const LegacyElderView = () => {
           </CardContent>
         </Card>
 
-        {/* RIGHT — Highlight */}
+        {/* RIGHT — Highlights carousel */}
         <Card className="bg-card border-2 border-gold/40 shadow-lg shadow-gold/5">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Quote className="w-4 h-4 text-gold" />
-              <CardTitle className="text-cream text-base">Arvokas hetki tältä viikolta</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Quote className="w-4 h-4 text-gold" />
+                <CardTitle className="text-cream text-base">Arvokkaat hetket</CardTitle>
+              </div>
+              {highlights.length > 0 && (
+                <span className="text-xs text-cream/50">{highlightIdx + 1} / {highlights.length}</span>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            {highlight ? (
+            {highlights.length > 0 ? (
               <>
-                <p className="italic text-cream text-base leading-relaxed">"{highlight.quote}"</p>
+                <p className="italic text-cream text-base leading-relaxed">"{highlights[highlightIdx].quote}"</p>
+                {highlights[highlightIdx].context && (
+                  <p className="text-cream/60 text-xs mt-2">{highlights[highlightIdx].context}</p>
+                )}
                 <p className="text-xs text-cream/60 mt-3">
-                  — {firstName}, {new Date(highlight.created_at).toLocaleDateString('fi-FI')}
+                  — {firstName}, {new Date(highlights[highlightIdx].created_at).toLocaleDateString('fi-FI')}
                 </p>
-                <p className="text-xs text-gold/70 mt-4 italic">Tämä tulee olemaan osa kirjaa.</p>
+                {highlights.length > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setHighlightIdx((i) => (i - 1 + highlights.length) % highlights.length)}
+                      className="text-cream/70 hover:text-cream"
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" /> Edellinen
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setHighlightIdx((i) => (i + 1) % highlights.length)}
+                      className="text-cream/70 hover:text-cream"
+                    >
+                      Seuraava <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
+                <p className="text-xs text-gold/70 mt-4 italic">Nämä tulevat olemaan osa kirjaa.</p>
               </>
             ) : (
               <p className="text-cream/50 text-sm">Ensimmäinen poiminta ilmestyy ensimmäisten puheluiden jälkeen.</p>
