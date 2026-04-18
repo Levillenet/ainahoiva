@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone } from 'lucide-react';
+import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone, MessageSquare } from 'lucide-react';
 import { startOfWeek, lifeStageLabel } from '@/lib/legacy';
 import { toast } from '@/hooks/use-toast';
 
@@ -94,7 +94,15 @@ const LegacyElderView = () => {
       </div>
 
       {subscriptionStatus === 'active' && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {import.meta.env.DEV && (
+            <Link to={`/dashboard/muistoissa/${elderId}/testaa`}>
+              <Button variant="outline" size="sm">
+                <MessageSquare className="w-3 h-3 mr-2" />
+                Testaa algoritmia
+              </Button>
+            </Link>
+          )}
           <Button
             onClick={startMuistoissaCall}
             disabled={starting}
