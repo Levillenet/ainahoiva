@@ -46,6 +46,13 @@ type Revision = {
   created_by_ai: boolean | null;
 };
 
+type ChapterNotes = {
+  id: string;
+  notes_markdown: string;
+  word_count: number;
+  last_updated_at: string;
+};
+
 const STATUS_LABELS: Record<ChapterStatus, { label: string; className: string }> = {
   empty: { label: 'Ei vielä aloitettu', className: 'bg-muted text-muted-foreground border-border' },
   draft: { label: 'Luonnos', className: 'bg-amber-900/30 text-amber-200 border-amber-800/50' },
@@ -64,11 +71,13 @@ export default function LegacyBookView() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [revisions, setRevisions] = useState<Revision[]>([]);
+  const [chapterNotes, setChapterNotes] = useState<Record<string, ChapterNotes>>({});
+  const [showNotes, setShowNotes] = useState(false);
 
   const loadAll = async () => {
     if (!elderId) return;
     setLoading(true);
-    const [elderRes, chaptersRes, profileRes, callsRes] = await Promise.all([
+    const [elderRes, chaptersRes, profileRes, callsRes, notesRes] = await Promise.all([
       supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
       supabase
         .from('book_chapters')
@@ -87,7 +96,19 @@ export default function LegacyBookView() {
         .eq('call_type', 'muistoissa')
         .is('processed_at', null)
         .order('called_at', { ascending: false }),
+      supabase
+        .from('chapter_notes')
+        .select('*')
+        .eq('elder_id', elderId),
     ]);
+
+    if (notesRes.data) {
+      const notesByStage: Record<string, ChapterNotes> = {};
+      for (const n of notesRes.data) {
+        notesByStage[n.life_stage] = n as ChapterNotes;
+      }
+      setChapterNotes(notesByStage);
+    }
 
     if (elderRes.data) setElderName(elderRes.data.full_name);
     if (chaptersRes.data) {
