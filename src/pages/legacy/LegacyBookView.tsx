@@ -408,6 +408,36 @@ export default function LegacyBookView() {
                   </div>
                 )}
 
+                {selectedChapter.content_markdown && (
+                  <div className="flex items-center gap-3 flex-wrap pb-2">
+                    <Button
+                      size="sm"
+                      onClick={generateProse}
+                      disabled={generating}
+                      className="bg-gold/80 hover:bg-gold text-background"
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                          Kirjoitetaan…
+                        </>
+                      ) : (
+                        <>
+                          <PenLine className="w-3 h-3 mr-2" />
+                          {selectedChapter.content_markdown.length > 1000
+                            ? 'Kirjoita uudelleen'
+                            : 'Kirjoita proosaksi'}
+                        </>
+                      )}
+                    </Button>
+                    {generating && (
+                      <span className="text-xs text-cream/50">
+                        Claude Sonnet 4.5 työstää (~30–60 s)
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {selectedChapter.content_markdown ? (
                   <div className="prose prose-invert max-w-none text-cream/90 leading-relaxed whitespace-pre-wrap">
                     {selectedChapter.content_markdown}
@@ -419,6 +449,33 @@ export default function LegacyBookView() {
                       Kirjailija-AI aloittaa luvun kun aiheen puhelumateriaalia on riittävästi
                     </p>
                   </div>
+                )}
+
+                {revisions.length > 0 && (
+                  <details className="mt-6 pt-4 border-t border-border/50">
+                    <summary className="text-sm text-cream/60 cursor-pointer flex items-center gap-2 hover:text-cream">
+                      <History className="w-4 h-4" />
+                      Versiohistoria ({revisions.length})
+                    </summary>
+                    <div className="space-y-2 mt-3">
+                      {revisions.map((rev) => (
+                        <div
+                          key={rev.id}
+                          className="text-xs p-3 rounded-md bg-muted/10 border border-border/50"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-cream/80">
+                              {new Date(rev.created_at).toLocaleString('fi-FI')}
+                            </span>
+                            <span className="text-cream/50">
+                              {rev.word_count ?? 0} sanaa · {rev.ai_model_used || 'ei AI'}
+                            </span>
+                          </div>
+                          <p className="text-cream/60">{rev.change_reason || '—'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 )}
               </div>
             )}
