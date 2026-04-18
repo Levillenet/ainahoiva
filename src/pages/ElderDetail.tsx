@@ -288,6 +288,30 @@ const ElderDetail = () => {
         </div>
       </div>
 
+      {/* Muistoissa-tilauksen status */}
+      {legacy && (
+        <div className="bg-card rounded-lg p-5 border-2 border-gold/40 shadow-lg shadow-gold/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <BookOpen className="w-6 h-6 text-gold mt-0.5" />
+            <div>
+              <h2 className="text-cream font-bold text-base">Aina Muistoissa — aktiivinen</h2>
+              <p className="text-muted-foreground text-sm mt-1">
+                Edistymä {legacy.coverage_pct}%
+                {legacy.target_completion_date && (
+                  <> · Arvioitu valmistuminen {new Date(legacy.target_completion_date).toLocaleDateString('fi-FI', { month: 'numeric', year: 'numeric' })}</>
+                )}
+              </p>
+              <p className="text-xs text-cream/50 mt-1">Tiedot ovat tallessa — elämäntarinan kokoaminen on käynnissä.</p>
+            </div>
+          </div>
+          <Link to={`/dashboard/muistoissa/${elder.id}`}>
+            <Button variant="outline" size="sm" className="border-gold text-gold hover:bg-gold/10">
+              Avaa Muistoissa <ArrowRight className="w-3 h-3 ml-1" />
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Cognitive tracking */}
       <div className="bg-card rounded-lg p-6 border border-border">
         <div className="flex items-start justify-between gap-4 flex-wrap">
