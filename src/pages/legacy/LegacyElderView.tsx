@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone, MessageSquare, Pencil, BookOpen } from 'lucide-react';
+import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone, MessageSquare, Pencil, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { startOfWeek, lifeStageLabel } from '@/lib/legacy';
 import { toast } from '@/hooks/use-toast';
 
@@ -13,7 +13,8 @@ const LegacyElderView = () => {
   const [coveragePct, setCoveragePct] = useState(0);
   const [target, setTarget] = useState<string>('—');
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
-  const [highlight, setHighlight] = useState<{ quote: string; created_at: string } | null>(null);
+  const [highlights, setHighlights] = useState<{ quote: string; created_at: string; context: string | null }[]>([]);
+  const [highlightIdx, setHighlightIdx] = useState(0);
   const [observations, setObservations] = useState<{ id: string; title: string; description: string | null; type: string; read_by_family: boolean | null; created_at: string }[]>([]);
   const [weekStats, setWeekStats] = useState({ calls: 0, durationMin: 0, avgMood: 0 });
   const [currentTopic, setCurrentTopic] = useState<{ life_stage: string; depth_score: number } | null>(null);
@@ -26,7 +27,7 @@ const LegacyElderView = () => {
         supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
         supabase.from('legacy_subscriptions').select('target_completion_date, status').eq('elder_id', elderId).maybeSingle(),
         supabase.from('coverage_map').select('depth_score').eq('elder_id', elderId),
-        supabase.from('legacy_highlights').select('quote, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('legacy_highlights').select('quote, created_at, context').eq('elder_id', elderId).order('created_at', { ascending: false }),
         supabase.from('legacy_observations').select('id, title, description, type, read_by_family, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(3),
         supabase.from('call_reports').select('duration_seconds, mood_score, called_at').eq('elder_id', elderId).eq('call_type', 'muistoissa').gte('called_at', startOfWeek().toISOString()),
         supabase.from('coverage_map').select('life_stage, depth_score').eq('elder_id', elderId).eq('status', 'in_progress').order('last_discussed', { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
@@ -41,7 +42,8 @@ const LegacyElderView = () => {
         const avg = cov.reduce((a, c) => a + (c.depth_score ?? 0), 0) / cov.length;
         setCoveragePct(Math.round(avg));
       }
-      setHighlight(hl);
+      setHighlights(hl ?? []);
+      setHighlightIdx(0);
       setObservations(obs ?? []);
       setCurrentTopic(topic ?? null);
       const callsArr = calls ?? [];
@@ -180,22 +182,50 @@ const LegacyElderView = () => {
           </CardContent>
         </Card>
 
-        {/* RIGHT — Highlight */}
+        {/* RIGHT — Highlights carousel */}
         <Card className="bg-card border-2 border-gold/40 shadow-lg shadow-gold/5">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Quote className="w-4 h-4 text-gold" />
-              <CardTitle className="text-cream text-base">Arvokas hetki tältä viikolta</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Quote className="w-4 h-4 text-gold" />
+                <CardTitle className="text-cream text-base">Arvokkaat hetket</CardTitle>
+              </div>
+              {highlights.length > 0 && (
+                <span className="text-xs text-cream/50">{highlightIdx + 1} / {highlights.length}</span>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            {highlight ? (
+            {highlights.length > 0 ? (
               <>
-                <p className="italic text-cream text-base leading-relaxed">"{highlight.quote}"</p>
+                <p className="italic text-cream text-base leading-relaxed">"{highlights[highlightIdx].quote}"</p>
+                {highlights[highlightIdx].context && (
+                  <p className="text-cream/60 text-xs mt-2">{highlights[highlightIdx].context}</p>
+                )}
                 <p className="text-xs text-cream/60 mt-3">
-                  — {firstName}, {new Date(highlight.created_at).toLocaleDateString('fi-FI')}
+                  — {firstName}, {new Date(highlights[highlightIdx].created_at).toLocaleDateString('fi-FI')}
                 </p>
-                <p className="text-xs text-gold/70 mt-4 italic">Tämä tulee olemaan osa kirjaa.</p>
+                {highlights.length > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setHighlightIdx((i) => (i - 1 + highlights.length) % highlights.length)}
+                      className="text-cream/70 hover:text-cream"
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" /> Edellinen
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setHighlightIdx((i) => (i + 1) % highlights.length)}
+                      className="text-cream/70 hover:text-cream"
+                    >
+                      Seuraava <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
+                <p className="text-xs text-gold/70 mt-4 italic">Nämä tulevat olemaan osa kirjaa.</p>
               </>
             ) : (
               <p className="text-cream/50 text-sm">Ensimmäinen poiminta ilmestyy ensimmäisten puheluiden jälkeen.</p>
