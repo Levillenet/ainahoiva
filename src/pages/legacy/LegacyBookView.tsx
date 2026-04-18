@@ -351,22 +351,60 @@ export default function LegacyBookView() {
         <span />
       </div>
 
-      <Card className="bg-card border-border">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-cream/70">
-            <span>
-              <span className="text-cream font-medium">{totalWords.toLocaleString('fi-FI')}</span>{' '}
-              sanaa
-            </span>
-            <span>
-              <span className="text-cream font-medium">{completedChapters}</span>/15 lukua valmiina
-            </span>
-            <span>
-              <span className="text-cream font-medium">{draftChapters}</span> luonnosta
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      {progress && (
+        <Card className="bg-card border-border">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-xs text-cream/50 uppercase tracking-wide">
+                  {BOOK_FORMATS[bookFormat].label} — edistyminen
+                </p>
+                <p className="text-3xl text-gold font-medium mt-1">
+                  {progress.overallPercent}%
+                </p>
+              </div>
+              <div className="text-right text-sm text-cream/70 space-y-0.5">
+                <div>
+                  <span className="text-cream font-medium">
+                    {progress.totalWords.toLocaleString('fi-FI')}
+                  </span>{' '}
+                  / {progress.targetWords.toLocaleString('fi-FI')} sanaa
+                </div>
+                <div>
+                  {progress.chaptersReady}/{progress.chaptersTotal} lukua valmiina
+                </div>
+                <div className="text-xs text-cream/50">
+                  {BOOK_FORMATS[bookFormat].pageEstimate}
+                </div>
+              </div>
+            </div>
+
+            <Progress value={progress.overallPercent} className="h-2" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="p-3 rounded-md bg-muted/10 border border-border">
+                <p className="text-xs text-cream/50">Sisältö</p>
+                <p className="text-lg text-cream font-medium">{progress.wordsPercent}%</p>
+                <p className="text-[10px] text-cream/40">50 % painoarvosta</p>
+              </div>
+              <div className="p-3 rounded-md bg-muted/10 border border-border">
+                <p className="text-xs text-cream/50">Luvut valmiina</p>
+                <p className="text-lg text-cream font-medium">{progress.statusPercent}%</p>
+                <p className="text-[10px] text-cream/40">30 % painoarvosta</p>
+              </div>
+              <div className="p-3 rounded-md bg-muted/10 border border-border">
+                <p className="text-xs text-cream/50">Aiheet käsitelty</p>
+                <p className="text-lg text-cream font-medium">{progress.coveragePercent}%</p>
+                <p className="text-[10px] text-cream/40">20 % painoarvosta</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-cream/70 italic">
+              {formatProgressDescription(progress)}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {unprocessedCalls.length > 0 && (
         <Card className="bg-amber-950/20 border-amber-800/50">
