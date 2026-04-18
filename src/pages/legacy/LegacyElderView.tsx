@@ -39,6 +39,7 @@ const LegacyElderView = () => {
       }
       setHighlight(hl);
       setObservations(obs ?? []);
+      setCurrentTopic(topic ?? null);
       const callsArr = calls ?? [];
       const totalSec = callsArr.reduce((s, c) => s + (c.duration_seconds ?? 0), 0);
       const moods = callsArr.map((c) => c.mood_score).filter((m): m is number => m != null);
@@ -91,6 +92,19 @@ const LegacyElderView = () => {
             <Stat label="Puheluja" value={String(weekStats.calls)} />
             <Stat label="Yhteiskesto" value={`${weekStats.durationMin} min`} />
             <Stat label="Mieliala" value={`${moodEmoji} ${weekStats.avgMood || '—'}`} />
+            {currentTopic && (
+              <div className="pt-3 mt-3 border-t border-border/50">
+                <p className="text-xs text-cream/50 uppercase tracking-wide mb-1">
+                  Parhaillaan
+                </p>
+                <p className="text-cream font-medium">
+                  {lifeStageLabel(currentTopic.life_stage)}
+                </p>
+                <p className="text-xs text-cream/60 mt-1">
+                  {currentTopic.depth_score}% käsitelty
+                </p>
+              </div>
+            )}
             <Link to={`/dashboard/vanhukset/${elderId}`}>
               <Button variant="outline" size="sm" className="w-full mt-2">
                 Katso puhelut <ArrowRight className="w-3 h-3 ml-1" />
