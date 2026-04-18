@@ -1,42 +1,47 @@
 
-Käyttäjä haluaa että asetan Vapi Server URL:n API:n kautta (ei dashboardissa) ja testaan että se toimii. Onneksi projektissa on jo olemassa `set-vapi-server-url`-edge function, mutta se on hardkoodattu vanhalle Aina-assistantille (`c19c2445...`) eikä Muistoissa-assistantille (`b497059c...`). Lisäksi se asettaa väärän serverUrl:n (`vapi-assistant-request` eikä `vapi-muistoissa-webhook`).
+Käyttäjä haluaa että:
+1. Ottaa ladatun .wav-tiedoston (Samin Muistoissa-puhelu, vapi_call_id `019da11d-4d8a-7000-ad8a-8bfdcb3fa9ca`)
+2. Litteroi sen (puheentunnistus → teksti)
+3. Tallentaa sen Samin ensimmäiseksi Muistoissa-puheluksi `call_reports`-tauluun
+
+## Tutkimus
+
+Sami on `36da778e-7336-451a-8123-c84ab87982ba` (näkyi current-routesta aiemmin).
 
 ## Suunnitelma
 
-### Vaihe 1: Päivitä `set-vapi-server-url` tukemaan molempia assistantteja
+### Vaihe 1: Litteroi audio
+Käytän OpenAI Whisper API:a tai Lovable AI Gateway:n vastaavaa palvelua. Lovable AI Gateway:ssä ei ole suoraan whisper-mallia listattuna, mutta `gemini-2.5-flash` ja `gpt-5-mini` -mallit eivät tee puheentunnistusta — ne käsittelevät jo valmista tekstiä.
 
-Muokkaan `supabase/functions/set-vapi-server-url/index.ts` ottamaan query-parametrin `?assistant=muistoissa` tai `?assistant=aina`:
-- `aina` (default): assistant `VAPI_ASSISTANT_ID`, serverUrl → `vapi-assistant-request`
-- `muistoissa`: assistant `VAPI_MUISTOISSA_ASSISTANT_ID`, serverUrl → `vapi-muistoissa-webhook`
+Vaihtoehdot:
+- **A) OpenAI Whisper API** — vaatii OPENAI_API_KEY:n. Ei ole secretsissä.
+- **B) Lovable AI Gateway audio-mallit** — gemini-2.5-pro tukee audiota. Voin lähettää audion base64:nä ja pyytää litterointia.
+- **C) Hume API** — meillä on HUME_API_KEY mutta se on emotion analysis, ei transkriptio.
 
-Funktio käyttää jo `VAPI_API_KEY`-secretiä joka on olemassa, joten ei tarvita uusia secretejä.
+Käytän vaihtoehtoa B: Gemini 2.5 Pro tukee audiota multimodaalisena syötteenä Lovable AI Gateway:n kautta.
 
-### Vaihe 2: Kutsu funktiota Muistoissa-parametrilla
+Toteutus exec-skriptinä (ei tarvitse luoda edge-funktiota tähän kertaluonteiseen tehtävään):
+1. Kopioi audio /tmp/:hen
+2. Lue base64
+3. POST Lovable AI Gateway:lle gemini-2.5-pro mallilla, mukana audiopayload + prompt: "Litteroi tämä suomenkielinen puhelu Aina/Sami -muodossa"
+4. Tulosta transkripti
 
-Käytän `supabase--curl_edge_functions`-työkalua kutsumaan `/set-vapi-server-url?assistant=muistoissa` ja varmistan että Vapi-API palauttaa `serverUrl: "https://bjsthjvpotfcxgqxtoiy.supabase.co/functions/v1/vapi-muistoissa-webhook"`.
+### Vaihe 2: Tallenna call_reports-tauluun
+INSERT-komento `supabase--insert`-työkalulla:
+- elder_id: `36da778e-7336-451a-8123-c84ab87982ba`
+- call_type: `muistoissa`
+- vapi_call_id: `019da11d-4d8a-7000-ad8a-8bfdcb3fa9ca`
+- transcript: <litteroitu teksti>
+- called_at: nyt
+- duration_seconds: lasketaan ffprobe:lla audiotiedostosta
 
-### Vaihe 3: Varmista myös webhook-tilausten asetukset
-
-Vapi-assistantilla pitää myös olla `serverMessages: ["end-of-call-report"]`. Lisään tämän PATCH-pyyntöön samalla kertaa, jotta `end-of-call-report` -tapahtuma varmasti laukaisee webhookin.
-
-### Vaihe 4: Testikutsu webhookiin
-
-Testaan vielä että `vapi-muistoissa-webhook` itse vastaa (lähetän tyhjän `OPTIONS`-pyynnön + dummy-payloadin jossa `messageType !== "end-of-call-report"`, jolloin pitäisi palauttaa `{ok: true, ignored: ...}`).
+### Vaihe 3: Vahvistus
+Supabase-querylla varmistus että rivi on tallessa.
 
 ## Tiedostot
 
-```text
-MUOKATAAN:
-  supabase/functions/set-vapi-server-url/index.ts
-    - Lue ?assistant=muistoissa|aina query-parametri
-    - Valitse oikea assistantId ja serverUrl sen perusteella
-    - PATCH-bodyyn lisätään serverMessages: ["end-of-call-report"]
-```
+Ei pysyviä tiedostomuutoksia — tämä on yksittäinen data-task.
 
-Ei muita muutoksia. Ei skeemamuutoksia. Ei UI-muutoksia.
-
-## Testaus suunnitelman jälkeen
-
-1. Curl: `POST /set-vapi-server-url?assistant=muistoissa` → odotetaan 200 + oikea serverUrl Vapin vastauksessa
-2. Curl: `POST /vapi-muistoissa-webhook` dummy-payloadilla → odotetaan `{ok: true, ignored: ...}`
-3. Käyttäjä voi sen jälkeen tehdä oikean Muistoissa-puhelun ja transcripti tallentuu `call_reports`-tauluun automaattisesti.
+## Riskit
+- Lovable AI Gateway:n audio-tuki: jos gemini-2.5-pro ei hyväksy audiota base64:nä (vaan vain inline_data fileURI:nä), joudun kokeilemaan toista lähestymistapaa
+- Audio voi olla pitkä — gemini-2.5-pro tukee pitkiä audiotiedostoja
