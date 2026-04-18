@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone, MessageSquare, Pencil, BookOpen } from 'lucide-react';
+import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone, MessageSquare, Pencil, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { startOfWeek, lifeStageLabel } from '@/lib/legacy';
 import { toast } from '@/hooks/use-toast';
 
