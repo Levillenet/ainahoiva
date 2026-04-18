@@ -3,7 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, BookOpen, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 type ChapterStatus = 'empty' | 'draft' | 'reviewed' | 'final';
 
@@ -28,6 +30,13 @@ type ProfileSummary = {
   last_updated: string;
 };
 
+type UnprocessedCall = {
+  id: string;
+  called_at: string;
+  duration_seconds: number;
+  transcript_length: number;
+};
+
 const STATUS_LABELS: Record<ChapterStatus, { label: string; className: string }> = {
   empty: { label: 'Ei vielä aloitettu', className: 'bg-muted text-muted-foreground border-border' },
   draft: { label: 'Luonnos', className: 'bg-amber-900/30 text-amber-200 border-amber-800/50' },
@@ -42,38 +51,87 @@ export default function LegacyBookView() {
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
   const [elderName, setElderName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [unprocessedCalls, setUnprocessedCalls] = useState<UnprocessedCall[]>([]);
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  const loadAll = async () => {
+    if (!elderId) return;
+    setLoading(true);
+    const [elderRes, chaptersRes, profileRes, callsRes] = await Promise.all([
+      supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
+      supabase
+        .from('book_chapters')
+        .select('*')
+        .eq('elder_id', elderId)
+        .order('chapter_number'),
+      supabase
+        .from('profile_summary')
+        .select('*')
+        .eq('elder_id', elderId)
+        .maybeSingle(),
+      supabase
+        .from('call_reports')
+        .select('id, called_at, duration_seconds, transcript')
+        .eq('elder_id', elderId)
+        .eq('call_type', 'muistoissa')
+        .is('processed_at', null)
+        .order('called_at', { ascending: false }),
+    ]);
+
+    if (elderRes.data) setElderName(elderRes.data.full_name);
+    if (chaptersRes.data) {
+      const list = chaptersRes.data as Chapter[];
+      setChapters(list);
+      setSelectedChapter((prev) => {
+        if (prev) {
+          const refreshed = list.find((c) => c.id === prev.id);
+          if (refreshed) return refreshed;
+        }
+        const firstWithContent = list.find((c) => c.content_markdown?.trim().length > 0);
+        return firstWithContent ?? list[0] ?? null;
+      });
+    }
+    if (profileRes.data) setProfile(profileRes.data as ProfileSummary);
+    if (callsRes.data) {
+      setUnprocessedCalls(
+        callsRes.data.map((c) => ({
+          id: c.id,
+          called_at: c.called_at ?? '',
+          duration_seconds: c.duration_seconds || 0,
+          transcript_length: (c.transcript || '').length,
+        })),
+      );
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (!elderId) return;
-    const load = async () => {
-      setLoading(true);
-      const [elderRes, chaptersRes, profileRes] = await Promise.all([
-        supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
-        supabase
-          .from('book_chapters')
-          .select('*')
-          .eq('elder_id', elderId)
-          .order('chapter_number'),
-        supabase
-          .from('profile_summary')
-          .select('*')
-          .eq('elder_id', elderId)
-          .maybeSingle(),
-      ]);
-
-      if (elderRes.data) setElderName(elderRes.data.full_name);
-      if (chaptersRes.data) {
-        const list = chaptersRes.data as Chapter[];
-        setChapters(list);
-        // Esivalitse ensimmäinen luku jossa on sisältöä, muuten luku 1
-        const firstWithContent = list.find((c) => c.content_markdown?.trim().length > 0);
-        setSelectedChapter(firstWithContent ?? list[0] ?? null);
-      }
-      if (profileRes.data) setProfile(profileRes.data as ProfileSummary);
-      setLoading(false);
-    };
-    load();
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elderId]);
+
+  const processCall = async (callId: string) => {
+    setProcessing(callId);
+    try {
+      const { data, error } = await supabase.functions.invoke('muistoissa-process-call', {
+        body: { call_report_id: callId },
+      });
+      if (error) throw error;
+      toast({
+        title: 'Puhelu käsitelty',
+        description: `${data?.chapters_updated ?? 0} lukua päivitettiin. ${data?.summary ?? ''}`,
+      });
+      await loadAll();
+    } catch (err) {
+      toast({
+        title: 'Käsittely epäonnistui',
+        description: (err as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessing(null);
+    }
+  };
 
   if (loading) {
     return <div className="text-cream/60">Ladataan kirjaa…</div>;
@@ -118,6 +176,55 @@ export default function LegacyBookView() {
           </div>
         </CardContent>
       </Card>
+
+      {unprocessedCalls.length > 0 && (
+        <Card className="bg-amber-950/20 border-amber-800/50">
+          <CardHeader>
+            <CardTitle className="text-amber-200 text-base flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              Käsittelemättömät puhelut ({unprocessedCalls.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {unprocessedCalls.map((call) => (
+              <div
+                key={call.id}
+                className="flex items-center justify-between gap-3 p-3 rounded-md bg-amber-950/30 border border-amber-800/30"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm text-amber-100">
+                    {new Date(call.called_at).toLocaleDateString('fi-FI')}
+                    <span className="text-amber-200/60"> · </span>
+                    {Math.round(call.duration_seconds / 60)} min
+                  </div>
+                  <div className="text-xs text-amber-200/60 mt-0.5">
+                    Transkripti {call.transcript_length.toLocaleString('fi-FI')} merkkiä
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => processCall(call.id)}
+                  disabled={processing === call.id}
+                  className="bg-amber-700 hover:bg-amber-600 text-amber-50 shrink-0"
+                >
+                  {processing === call.id ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      Käsitellään…
+                    </>
+                  ) : (
+                    'Käsittele kirjailijalla'
+                  )}
+                </Button>
+              </div>
+            ))}
+            <p className="text-xs text-amber-200/50 leading-relaxed">
+              Kirjailija-AI (Claude Haiku 4.5) analysoi puhelun ja päivittää kirjan luvut
+              jäsennellyillä muistiinpanoilla. Tämä vie noin 10–20 sekuntia per puhelu.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {profile && (
         <Card className="bg-card border-border">
@@ -243,12 +350,8 @@ export default function LegacyBookView() {
                 )}
 
                 {selectedChapter.content_markdown ? (
-                  <div className="prose prose-invert max-w-none text-cream/90 leading-relaxed">
-                    {selectedChapter.content_markdown.split('\n\n').map((paragraph, i) => (
-                      <p key={i} className="mb-4">
-                        {paragraph}
-                      </p>
-                    ))}
+                  <div className="prose prose-invert max-w-none text-cream/90 leading-relaxed whitespace-pre-wrap">
+                    {selectedChapter.content_markdown}
                   </div>
                 ) : (
                   <div className="text-center py-12">
