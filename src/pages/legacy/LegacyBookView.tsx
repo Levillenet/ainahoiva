@@ -605,6 +605,9 @@ export default function LegacyBookView() {
             {chapters.map((chapter) => {
               const statusInfo = STATUS_LABELS[chapter.status];
               const isSelected = selectedChapter?.id === chapter.id;
+              const isInCurrentFormat = bookFormat === 'book' || chapter.included_in_novella;
+              const target = chapter.target_word_count || 3300;
+              const chapterProgress = Math.min(100, ((chapter.word_count || 0) / target) * 100);
               return (
                 <button
                   key={chapter.id}
@@ -613,18 +616,31 @@ export default function LegacyBookView() {
                     isSelected
                       ? 'bg-muted/30 border-gold/50'
                       : 'bg-muted/5 border-border hover:bg-muted/15'
-                  }`}
+                  } ${!isInCurrentFormat ? 'opacity-40' : ''}`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-cream/50">Luku {chapter.chapter_number}</span>
+                  <div className="flex items-center justify-between mb-1 gap-2">
+                    <span className="text-xs text-cream/50 flex items-center gap-1.5">
+                      Luku {chapter.chapter_number}
+                      {!isInCurrentFormat && bookFormat === 'novella' && (
+                        <span className="text-[9px] text-cream/40">(ei novellissa)</span>
+                      )}
+                    </span>
                     <Badge variant="outline" className={`text-[10px] ${statusInfo.className}`}>
                       {statusInfo.label}
                     </Badge>
                   </div>
                   <div className="text-sm text-cream font-medium">{chapter.title}</div>
-                  {chapter.word_count > 0 && (
-                    <div className="text-xs text-cream/50 mt-1">{chapter.word_count} sanaa</div>
-                  )}
+                  <div className="mt-2 space-y-1">
+                    <div className="h-1 bg-muted/30 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gold/60 transition-all"
+                        style={{ width: `${chapterProgress}%` }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-cream/50">
+                      {chapter.word_count || 0} / {target} sanaa
+                    </div>
+                  </div>
                 </button>
               );
             })}
