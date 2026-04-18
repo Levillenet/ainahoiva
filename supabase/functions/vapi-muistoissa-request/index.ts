@@ -458,36 +458,51 @@ async function selectTodaysTopic(elderId: string): Promise<TopicSelection> {
     };
   }
 
-  // 2. Hae coverage_mapista sopiva aihe
+  // 2. Hae coverage_mapista sopiva aihe — VAIN aiheet jotka eivät ole jo "well_covered"
   const { data: coverageRows } = await supabase
     .from("coverage_map")
-    .select("id, life_stage, theme, status, depth_score, priority, requires_trust_first")
+    .select("id, life_stage, theme, status, depth_score, priority, requires_trust_first, last_discussed")
     .eq("elder_id", elderId)
     .in("status", ["not_started", "in_progress"])
     .order("priority", { ascending: false })
     .order("depth_score", { ascending: true });
 
+  const callCount = await getCallCount(elderId);
+
   if (!coverageRows || coverageRows.length === 0) {
     return {
       label: "Vapaa keskustelu",
-      reason: "Haluaisimme kuulla lisää siitä mikä sinulle on tärkeää juuri nyt",
-      opening: "Mitä mielessä tänään? Onko ollut jokin muisto tai ajatus joka on käynyt mielessä?",
+      reason: "Kaikki perusaiheet ovat jo käsiteltyjä — kuullaan mitä mielessä juuri nyt",
+      opening: callCount > 0
+        ? "Mitä on viime aikoina tullut mieleen mistä haluaisitte kertoa? Vaikka aivan pieni asia."
+        : "Mitä mielessä tänään? Onko joku muisto käynyt mielessä?",
       source: "open",
     };
   }
 
   // Suodatus: trust_first vaatii että ~3 viikkoa puheluja takana
-  const callCount = await getCallCount(elderId);
   const canTrust = callCount >= 6;
-  const filtered = canTrust ? coverageRows : coverageRows.filter((r) => !r.requires_trust_first);
+  let filtered = canTrust ? coverageRows : coverageRows.filter((r) => !r.requires_trust_first);
+
+  // Jos aiempia puheluja on, priorisoi "in_progress" -aiheet (jatka kesken jäänyttä)
+  // ennen "not_started" -aiheita.
+  if (callCount > 0) {
+    const inProgress = filtered.filter((r) => r.status === "in_progress");
+    if (inProgress.length > 0) {
+      filtered = inProgress;
+    }
+  }
+
   const chosen = filtered[0] || coverageRows[0];
 
   return {
     label: chosen.theme || chosen.life_stage,
     reason: callCount === 0
       ? "Tämä on ensimmäinen keskustelumme — aloitetaan kevyesti"
-      : "Tätä aluetta ei ole vielä syvennetty",
-    opening: TOPIC_OPENINGS[chosen.life_stage] || `Kerro minulle vähän aiheesta: ${chosen.theme}`,
+      : chosen.status === "in_progress"
+        ? "Tästä puhuttiin viimeksi mutta jäi kesken — palataan siihen"
+        : "Tätä aluetta ei ole vielä käsitelty",
+    opening: TOPIC_OPENINGS[chosen.life_stage] || `Mainitsisitteko yhden konkreettisen asian aiheesta: ${chosen.theme}`,
     source: "coverage",
     coverage_id: chosen.id,
   };
