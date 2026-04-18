@@ -3,25 +3,28 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye } from 'lucide-react';
+import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye, Phone } from 'lucide-react';
 import { startOfWeek, lifeStageLabel } from '@/lib/legacy';
+import { toast } from '@/hooks/use-toast';
 
 const LegacyElderView = () => {
   const { elderId } = useParams();
   const [elder, setElder] = useState<{ full_name: string } | null>(null);
   const [coveragePct, setCoveragePct] = useState(0);
   const [target, setTarget] = useState<string>('—');
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<{ quote: string; created_at: string } | null>(null);
   const [observations, setObservations] = useState<{ id: string; title: string; description: string | null; type: string; read_by_family: boolean | null; created_at: string }[]>([]);
   const [weekStats, setWeekStats] = useState({ calls: 0, durationMin: 0, avgMood: 0 });
   const [currentTopic, setCurrentTopic] = useState<{ life_stage: string; depth_score: number } | null>(null);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     if (!elderId) return;
     const load = async () => {
       const [{ data: e }, { data: sub }, { data: cov }, { data: hl }, { data: obs }, { data: calls }, { data: topic }] = await Promise.all([
         supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
-        supabase.from('legacy_subscriptions').select('target_completion_date').eq('elder_id', elderId).maybeSingle(),
+        supabase.from('legacy_subscriptions').select('target_completion_date, status').eq('elder_id', elderId).maybeSingle(),
         supabase.from('coverage_map').select('depth_score').eq('elder_id', elderId),
         supabase.from('legacy_highlights').select('quote, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('legacy_observations').select('id, title, description, type, read_by_family, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(3),
@@ -30,6 +33,7 @@ const LegacyElderView = () => {
       ]);
 
       setElder(e);
+      setSubscriptionStatus(sub?.status ?? null);
       if (sub?.target_completion_date) {
         setTarget(new Date(sub.target_completion_date).toLocaleDateString('fi-FI', { month: 'numeric', year: 'numeric' }));
       }
@@ -55,6 +59,30 @@ const LegacyElderView = () => {
   const firstName = elder?.full_name?.split(' ')[0] ?? '';
   const moodEmoji = weekStats.avgMood >= 7 ? '😊' : weekStats.avgMood >= 5 ? '🙂' : weekStats.avgMood > 0 ? '😐' : '—';
 
+  const startMuistoissaCall = async () => {
+    if (!elderId || starting) return;
+    setStarting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('muistoissa-start-call', {
+        body: { elderId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({
+        title: 'Puhelu käynnistetty',
+        description: 'Aina soittaa kohta vanhukselle. Seuraa tilannetta tällä sivulla.',
+      });
+    } catch (err) {
+      toast({
+        title: 'Puhelun käynnistäminen epäonnistui',
+        description: (err as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setStarting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -64,6 +92,19 @@ const LegacyElderView = () => {
         <h1 className="text-xl text-cream font-medium">{elder?.full_name}</h1>
         <div className="w-20" />
       </div>
+
+      {subscriptionStatus === 'active' && (
+        <div className="flex justify-end">
+          <Button
+            onClick={startMuistoissaCall}
+            disabled={starting}
+            className="bg-gold text-navy hover:bg-gold/90"
+          >
+            <Phone className="w-4 h-4 mr-2" />
+            {starting ? 'Käynnistetään…' : 'Aloita Muistoissa-puhelu nyt'}
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* LEFT — Book progress */}
