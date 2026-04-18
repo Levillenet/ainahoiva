@@ -4,8 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2, PenLine, History, Wand2, ShieldCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import {
+  calculateBookProgress,
+  formatProgressDescription,
+  BOOK_FORMATS,
+  type BookFormat,
+  type BookProgress,
+} from '@/lib/bookProgress';
 
 type ChapterStatus = 'empty' | 'draft' | 'reviewed' | 'final';
 
@@ -16,9 +24,17 @@ type Chapter = {
   title: string;
   content_markdown: string;
   word_count: number;
+  target_word_count: number;
+  included_in_novella: boolean;
   status: ChapterStatus;
   last_generated_at: string | null;
   last_edited_at: string | null;
+};
+
+type CoverageRow = {
+  life_stage: string;
+  depth_score: number;
+  status: string;
 };
 
 type ProfileSummary = {
