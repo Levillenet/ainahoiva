@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { BookHeart, ArrowRight, Sparkles, FlaskConical, ScrollText, Plus } from 'lucide-react';
 import { calcAge, formatMonthYear, LIFE_STAGES, startOfWeek, toDateString } from '@/lib/legacy';
+import { calculateBookProgress, type BookFormat } from '@/lib/bookProgress';
 import { toast } from '@/hooks/use-toast';
 
 type SubscriptionRow = {
