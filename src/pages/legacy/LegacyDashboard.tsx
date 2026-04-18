@@ -55,15 +55,16 @@ const LegacyDashboard = () => {
   const [seeding, setSeeding] = useState(false);
 
   const load = async () => {
+    // Muistoissa on eri palvelu kuin Hoiva — is_active koskee vain Hoivaa.
+    // Näytetään kaikki vanhukset joilla on legacy_subscription.
     const { data: eldersData } = await supabase
       .from('elders')
       .select(`
         id, full_name,
-        legacy_subscriptions(status, started_at, target_completion_date, book_target_chapters),
+        legacy_subscriptions!inner(status, started_at, target_completion_date, book_target_chapters),
         legacy_profile(birth_year),
         call_reports(called_at)
       `)
-      .eq('is_active', true)
       .order('full_name');
 
     const list = (eldersData ?? []) as unknown as ElderRow[];

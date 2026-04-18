@@ -172,9 +172,9 @@ const LegacyElderView = () => {
                 </p>
               </div>
             )}
-            <Link to={`/dashboard/vanhukset/${elderId}`}>
+            <Link to={`/dashboard/muistoissa/${elderId}/huomiot`}>
               <Button variant="outline" size="sm" className="w-full mt-2">
-                Katso puhelut <ArrowRight className="w-3 h-3 ml-1" />
+                Katso Muistoissa-puhelut <ArrowRight className="w-3 h-3 ml-1" />
               </Button>
             </Link>
           </CardContent>
