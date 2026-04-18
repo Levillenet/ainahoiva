@@ -24,6 +24,8 @@ export type Database = {
           last_edited_at: string | null
           last_generated_at: string | null
           life_stage: string
+          prose_generated_at: string | null
+          prose_source_notes_version: number | null
           status: string | null
           title: string
           version: number | null
@@ -38,6 +40,8 @@ export type Database = {
           last_edited_at?: string | null
           last_generated_at?: string | null
           life_stage: string
+          prose_generated_at?: string | null
+          prose_source_notes_version?: number | null
           status?: string | null
           title: string
           version?: number | null
@@ -52,6 +56,8 @@ export type Database = {
           last_edited_at?: string | null
           last_generated_at?: string | null
           life_stage?: string
+          prose_generated_at?: string | null
+          prose_source_notes_version?: number | null
           status?: string | null
           title?: string
           version?: number | null
@@ -161,6 +167,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "call_reports_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chapter_notes: {
+        Row: {
+          chapter_id: string | null
+          created_at: string | null
+          elder_id: string
+          id: string
+          last_updated_at: string | null
+          life_stage: string
+          notes_markdown: string | null
+          word_count: number | null
+        }
+        Insert: {
+          chapter_id?: string | null
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          last_updated_at?: string | null
+          life_stage: string
+          notes_markdown?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          chapter_id?: string | null
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          last_updated_at?: string | null
+          life_stage?: string
+          notes_markdown?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapter_notes_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "book_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chapter_notes_elder_id_fkey"
             columns: ["elder_id"]
             isOneToOne: false
             referencedRelation: "elders"
