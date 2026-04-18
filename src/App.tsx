@@ -25,6 +25,7 @@ import LegacyRequests from "./pages/legacy/LegacyRequests";
 import LegacyObservations from "./pages/legacy/LegacyObservations";
 import LegacyTestChat from "./pages/legacy/LegacyTestChat";
 import LegacyBookView from "./pages/legacy/LegacyBookView";
+import NightlyBatchLog from "./pages/admin/NightlyBatchLog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => (
               <Route path="muistoissa/:elderId/huomiot" element={<LegacyObservations />} />
               <Route path="muistoissa/:elderId/testaa" element={<LegacyTestChat />} />
               <Route path="muistoissa/:elderId/kirja" element={<LegacyBookView />} />
+              <Route path="admin/batch-log" element={<NightlyBatchLog />} />
               <Route path="asetukset" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
