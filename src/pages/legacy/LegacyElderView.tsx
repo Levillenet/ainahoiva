@@ -27,7 +27,7 @@ const LegacyElderView = () => {
         supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
         supabase.from('legacy_subscriptions').select('target_completion_date, status').eq('elder_id', elderId).maybeSingle(),
         supabase.from('coverage_map').select('depth_score').eq('elder_id', elderId),
-        supabase.from('legacy_highlights').select('quote, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('legacy_highlights').select('quote, created_at, context').eq('elder_id', elderId).order('created_at', { ascending: false }),
         supabase.from('legacy_observations').select('id, title, description, type, read_by_family, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(3),
         supabase.from('call_reports').select('duration_seconds, mood_score, called_at').eq('elder_id', elderId).eq('call_type', 'muistoissa').gte('called_at', startOfWeek().toISOString()),
         supabase.from('coverage_map').select('life_stage, depth_score').eq('elder_id', elderId).eq('status', 'in_progress').order('last_discussed', { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
