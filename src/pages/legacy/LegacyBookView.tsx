@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2, PenLine, History, Wand2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, BookOpen, Clock, Sparkles, Loader2, PenLine, History, Wand2, ShieldCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 type ChapterStatus = 'empty' | 'draft' | 'reviewed' | 'final';
