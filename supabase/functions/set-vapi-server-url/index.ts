@@ -28,7 +28,8 @@ Deno.serve(async (req) => {
 
     if (assistantParam === "muistoissa") {
       assistantId = Deno.env.get("VAPI_MUISTOISSA_ASSISTANT_ID");
-      webhookPath = "vapi-muistoissa-webhook";
+      // vapi-muistoissa-request käsittelee sekä assistant-request- että end-of-call-report -viestit
+      webhookPath = "vapi-muistoissa-request";
     } else {
       assistantId = Deno.env.get("VAPI_ASSISTANT_ID") || "c19c2445-c22a-4c52-8831-3b882fc38d4b";
       webhookPath = "vapi-assistant-request";
@@ -57,7 +58,9 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         serverUrl: serverUrl,
-        serverMessages: ["end-of-call-report"],
+        serverMessages: assistantParam === "muistoissa"
+          ? ["assistant-request", "end-of-call-report"]
+          : ["end-of-call-report"],
       }),
     });
 
