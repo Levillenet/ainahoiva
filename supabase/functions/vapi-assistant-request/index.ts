@@ -222,11 +222,17 @@ vanhukselle tallentavasi.
 Tallenna kun vanhus mainitsee:
 - perheenjäsenten nimiä tai kuulumisia
   → memory_type: "person"
-- tulevia tai menneitä tapahtumia
-  → memory_type: "event"  
-- kipuja tai terveysasioita
+- KONKREETTISEN PÄIVÄTAPAHTUMAN (kävely, vieraat,
+  ruokailu, soitto, harrastus, ostokset)
+  → memory_type: "daily_activity"
+  → content ALKAA AINA muodolla "YYYY-MM-DD: ..."
+  → esim. "2026-04-17: kävi kävelyllä Lauttasaaressa"
+- tulevia aikataulutettuja menoja (lääkäri, syntymäpäivä)
+  → memory_type: "event"
+  → content alkaa muodolla "YYYY-MM-DD: ..."
+- kipuja tai pitkäaikaisia terveysasioita
   → memory_type: "health"
-- harrastuksia tai mieltymyksiä
+- pitkäaikaisia mieltymyksiä tai rutiineja
   → memory_type: "preference"
 
 Käytä aiempia muistoja luontevasti.
@@ -234,6 +240,28 @@ Kysy jatkokysymyksiä aiemmista asioista.
 Älä lue muistoja listana.
 Jos viimeisin puhelu on olemassa → viittaa:
 "Viimeksi mainitsitte [asia] — miten meni?"
+
+## ⚠️ TÄRKEÄ — Vahvista vanhuksen kertomaa
+Jos vanhus mainitsee tehneensä jotain (esim. olleensa kävelyllä,
+saaneensa vieraita, syöneensä jotain, soittaneensa jollekin),
+USKO HÄNTÄ vaikket itse muistaisi tai löytäisi sitä muistoistasi.
+
+Sano luontevasti esim.:
+- "Aivan, kerroittehan siitä kävelystä — mukava kuulla!"
+- "Hyvä juttu! Miten siellä oli?"
+- "Mukavaa! Kuka kävi kylässä?"
+
+ÄLÄ KOSKAAN pyydä vahvistusta toistuvasti tyyliin:
+- "Oletteko ihan varma?"
+- "Olitteko todella kävelyllä?"
+- "Ettekö muista oikein?"
+
+Toistuva varmistelu hämmentää vanhusta ja saattaa saada hänet
+epäilemään omaa muistiaan. Tämä on vakava virhe.
+
+Jos asia on uusi sinulle, tallenna se HILJAA add_memory-toolilla
+tyypillä "daily_activity" muotoon "${"${pvm}"}: vanhus kertoi X" —
+älä paljasta että et muistanut sitä etukäteen.
 
 ## Mielialaseuranta
 Arvioi mieliala koko puhelun ajan 1-5:
@@ -773,9 +801,55 @@ Deno.serve(async (req) => {
       .join(", ") || "Ei iltalääkkeitä";
     const hasDosette = meds.some((m: any) => m.has_dosette);
 
-    const memoryText = memories.length
-      ? memories.map((m: any) => `[${m.memory_type}] ${m.content}`).join("\n")
-      : "Ei aiempia muistoja";
+    // Erottele päivätyt tapahtumat (daily_activity, event) muista taustamuistoista.
+    // Päivätyt tapahtumat näytetään omassa lohkossaan jotta Aina muistaa
+    // mitä vanhus on tehnyt viime päivinä ja voi viitata "eiliseen kävelyyn".
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const datedTypes = new Set(["daily_activity", "event"]);
+
+    // Pura YYYY-MM-DD päivämäärä contentin alusta tai käytä updated_at:tä fallbackina
+    const parseMemoryDate = (m: any): Date | null => {
+      const match = typeof m.content === "string" ? m.content.match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
+      if (match) {
+        const d = new Date(`${match[1]}-${match[2]}-${match[3]}T12:00:00+03:00`);
+        if (!isNaN(d.getTime())) return d;
+      }
+      return m.updated_at ? new Date(m.updated_at) : null;
+    };
+
+    const datedMemories = memories
+      .filter((m: any) => datedTypes.has(m.memory_type))
+      .map((m: any) => ({ ...m, _date: parseMemoryDate(m) }))
+      .filter((m: any) => m._date && m._date >= sevenDaysAgo)
+      .sort((a: any, b: any) => b._date.getTime() - a._date.getTime())
+      .slice(0, 15);
+
+    const backgroundMemories = memories.filter(
+      (m: any) => !datedTypes.has(m.memory_type),
+    );
+
+    const backgroundMemoryText = backgroundMemories.length
+      ? backgroundMemories.map((m: any) => `[${m.memory_type}] ${m.content}`).join("\n")
+      : "Ei aiempia taustamuistoja";
+
+    const recentEventsText = datedMemories.length
+      ? datedMemories
+          .map((m: any) => {
+            // Jos contentissa jo on YYYY-MM-DD, käytä sitä sellaisenaan
+            const hasDatePrefix = /^\d{4}-\d{2}-\d{2}/.test(m.content);
+            if (hasDatePrefix) return `  ${m.content}`;
+            const fi = m._date.toLocaleDateString("fi-FI", { timeZone: "Europe/Helsinki" });
+            return `  ${fi}: ${m.content}`;
+          })
+          .join("\n")
+      : "  (ei tallennettuja päivätapahtumia viimeiseltä viikolta)";
+
+    // Yhdistetty teksti, joka korvaa vanhan memoryText:in promptissa
+    const memoryText = `TAUSTAMUISTOT (vanhuksesta yleisesti):
+${backgroundMemoryText}
+
+VIIME PÄIVIEN TAPAHTUMAT (KÄYTÄ NÄITÄ jos vanhus viittaa eiliseen tai viime päiviin — usko vanhusta vaikka tapahtuma puuttuisi täältä):
+${recentEventsText}`;
 
     const lastCallText = lastCalls.length
       ? lastCalls.map((c: any, i: number) =>

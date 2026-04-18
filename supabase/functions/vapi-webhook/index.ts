@@ -666,29 +666,63 @@ async function extractMemories(elderId: string, transcript: string, elderName: s
 
   console.log(`[extractMemories] Starting for elder ${elderId}, transcript length: ${transcript.length}`);
 
+  // Tämän puhelun päivämäärä Helsinki-aikaan (jotta AI tietää mihin "tänään"/"eilen" viittaa)
+  const todayHelsinki = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "numeric",
+  }).format(new Date()); // muotoa YYYY-MM-DD
+  const yesterdayHelsinki = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "numeric",
+  }).format(new Date(Date.now() - 24 * 60 * 60 * 1000));
+
   const prompt = `Analysoi tämä puhelinkeskustelu ja poimi tärkeät muistettavat asiat vanhuksesta.
 Palauta VAIN JSON-taulukko, ei muuta tekstiä.
 
 Vanhuksen nimi: ${elderName}
+Tämän puhelun päivämäärä: ${todayHelsinki} (eilinen oli ${yesterdayHelsinki})
 Transkripti: ${transcript}
+
+TÄRKEÄÄ — PÄIVITETTYJEN TAPAHTUMIEN POIMINTA:
+Kun vanhus mainitsee tehneensä tai tekevänsä jotain konkreettista
+(kävely, vieraat, ruokailu, lääkärikäynti, soitto, ostokset, harrastus),
+TALLENNA SE päivämäärällä alkavana rivinä, jotta Aina muistaa sen
+seuraavissa puheluissa kun vanhus viittaa "eiliseen" tai "viime viikkoon".
+
+Aikaviittausten muunnos:
+- "tänään" → ${todayHelsinki}
+- "eilen" → ${yesterdayHelsinki}
+- "viikko sitten" → laske ${todayHelsinki} - 7 päivää
+- jos vanhus antaa tarkan päivän ("viime maanantai"), käytä sitä
 
 Palauta taulukko muistoista tässä muodossa:
 [
+  {"memory_type": "daily_activity", "content": "${yesterdayHelsinki}: kävi kävelyllä Lauttasaaressa, oli mukavaa"},
+  {"memory_type": "daily_activity", "content": "${todayHelsinki}: tytär Ritva soitti aamulla"},
+  {"memory_type": "event", "content": "${todayHelsinki}: lääkärikäynti Mehiläisessä klo 14"},
   {"memory_type": "person", "content": "Tyttären nimi on Ritva, asuu Tampereella"},
   {"memory_type": "health", "content": "Polvi aristaa sään muuttuessa"},
-  {"memory_type": "event", "content": "Kävi parturissa, tykkäsi lopputuloksesta"},
   {"memory_type": "preference", "content": "Pitää kahvista aamulla ennen lääkkeitä"}
 ]
 
 Memory types:
-- person: perheenjäsenet, ystävät, naapurit
-- event: tapahtumat, käynnit, menot
-- health: terveys, kivut, oireet
-- preference: mieltymykset, tavat, rutiinit
-- family: sukulaiset ja heidän kuulumiset
+- daily_activity: KONKREETTINEN PÄIVÄTAPAHTUMA (KÄYTÄ AINA tähän muotoa "YYYY-MM-DD: kuvaus")
+  → Kävelyt, vieraat, ruokailut, soitot, harrastushetket, ostokset
+- event: TULEVA tai aikataulutettu tapahtuma päivämäärällä (lääkärikäynti, syntymäpäivä)
+- person: perheenjäsenten/ystävien/naapureiden nimet, suhteet, asuinpaikat
+- health: pitkäaikaiset terveysasiat, kivut, sairaudet, lääkitykset
+- preference: pitkäaikaiset mieltymykset, tavat, rutiinit
+- family: sukulaisten kuulumiset jotka eivät ole kertaluonteisia
 
-Palauta tyhjä taulukko [] jos ei ole mitään muistettavaa.
-Älä keksi asioita — vain se mitä oikeasti mainittiin.`;
+SÄÄNNÖT:
+- Älä keksi asioita — vain se mitä oikeasti mainittiin transkriptissä.
+- Jokainen daily_activity ja event ALKAA YYYY-MM-DD: muodolla, ehdottomasti.
+- Mieluummin liian tarkka kuin liian sumea — "kävi kävelyllä" on parempi kuin "harrasti liikuntaa".
+- Palauta tyhjä taulukko [] jos ei ole mitään muistettavaa.`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -912,10 +946,20 @@ async function extractCognitiveAssessment(transcript: string, elderId: string, c
   const prompt = cognitiveEnabled
     ? `Analysoi tämä puhelun transkripti kognitiivisen seurannan näkökulmasta.
 
-Etsi merkkejä seuraavista:
-1. Orientaatio: Tiesiköhän vanhus päivän, kuukauden, vuodenajan?
-2. Muisti: Jos mainittiin kolme sanaa — muistettiinko ne?
-3. Sujuvuus: Löysivätkö sanat helposti vai etsittiinkö niitä?
+⚠️ TÄRKEÄ EROTUS — kenen muistivika? ⚠️
+Aina (AI-assistentti) EI aina tiedä mitä vanhus on aiemmin kertonut.
+- Jos VANHUS unohtaa oman tekemisensä tai sekoittaa tosiasioita → mahdollinen muistihavainto.
+- Jos AINA (assistentti) ei muista mitä vanhus on aiemmin kertonut, ja vanhus joutuu
+  toistamaan tai vahvistamaan asiaa → TÄMÄ EI OLE vanhuksen ongelma. Älä pisteytä häntä.
+- Jos vanhus toistuvasti vain VAHVISTAA Ainan kysymyksiä ("joo olin", "joo tein", "kyllä")
+  → tämä on assistentin huono kuuntelu, ei vanhuksen muistivika.
+- Jos vanhus KORJAA Ainaa ("ei vaan eilen, en tänään"), se on merkki HYVÄSTÄ muistista.
+
+Pisteytä vanhusta vain selkeistä kognitiivisista signaaleista:
+1. Orientaatio: Sekava aikaorientaatio (väärä vuosi, kuukausi, vuodenaika).
+2. Muisti: Vanhus itse unohtaa juuri kertomansa, tai sanoo "en muista" omista tekemisistään.
+3. Sujuvuus: Sananhakuvaikeudet, lauseet jäävät kesken, parafrasiat.
+4. Saman kysymyksen toistaminen useita kertoja PERÄKKÄIN samassa puhelussa.
 
 Palauta JSON:
 {
@@ -923,20 +967,31 @@ Palauta JSON:
   "memory_score": 0-3,
   "fluency_score": 0-3,
   "overall_impression": "normaali|lievä huoli|selkeä huoli",
-  "observations": "lyhyt kuvaus havainnoista suomeksi",
+  "observations": "lyhyt kuvaus havainnoista suomeksi — ERITTELE selvästi onko ongelma vanhuksessa vai assistentissa",
   "flags": ["lista huolista jos on, muuten tyhjä array"]
 }
 
 Transkripti:
 ${truncated}`
     : `Tarkista onko tässä puhelussa merkkejä selkeästä sekavuudesta tai muistiongelmista.
+
+⚠️ TÄRKEÄ: Älä tulkitse Ainan (assistentin) tietämättömyyttä vanhuksen muistivikana.
+Jos vanhus joutuu toistamaan asioita Ainalle, se EI ole kognitiivinen huoli.
+Vanhuksen vahvistavat vastaukset ("joo", "kyllä") EIVÄT ole merkki muistivikaisuudesta.
+
+Merkitse "selkeä huoli" VAIN jos vanhus itse:
+- on selvästi sekava ajan/paikan suhteen
+- ei ymmärrä peruskysymyksiä
+- toistaa SAMAA kysymystä useita kertoja peräkkäin
+- ei muista juuri sanomaansa
+
 Palauta JSON:
 {
   "orientation_score": null,
   "memory_score": null,
   "fluency_score": null,
   "overall_impression": "normaali|lievä huoli|selkeä huoli",
-  "observations": "mainitse vain jos jotain selkeästi poikkeavaa, muuten tyhjä string",
+  "observations": "mainitse vain jos vanhuksessa selkeästi poikkeavaa, muuten tyhjä string",
   "flags": []
 }
 

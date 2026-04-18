@@ -1,0 +1,1 @@
+DELETE FROM public.cognitive_assessments WHERE id = '92779ac4-e191-44a5-bb0e-8193e51d3aad';
