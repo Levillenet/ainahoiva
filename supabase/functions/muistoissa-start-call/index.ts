@@ -24,22 +24,11 @@ Deno.serve(async (req) => {
 
   try {
     const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
-    const VAPI_MUISTOISSA_ASSISTANT_ID = Deno.env.get("VAPI_MUISTOISSA_ASSISTANT_ID");
     const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID");
 
     if (!VAPI_API_KEY || !VAPI_PHONE_NUMBER_ID) {
       return jsonResponse(
         { error: "Vapi-asetukset puuttuvat (VAPI_API_KEY tai VAPI_PHONE_NUMBER_ID)." },
-        500,
-      );
-    }
-
-    if (!VAPI_MUISTOISSA_ASSISTANT_ID) {
-      return jsonResponse(
-        {
-          error:
-            "Muistoissa-assistenttia ei ole vielä konfiguroitu Vapi-dashboardissa. Ota yhteys kehittäjään.",
-        },
         500,
       );
     }
@@ -71,7 +60,8 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        assistantId: VAPI_MUISTOISSA_ASSISTANT_ID,
+        // EI assistantId:tä → Vapi lähettää assistant-request-tapahtuman serverUrl:iin
+        // ja vapi-muistoissa-request palauttaa dynaamisen transient assistantin
         phoneNumberId: VAPI_PHONE_NUMBER_ID,
         customer: {
           number: elder.phone_number,
