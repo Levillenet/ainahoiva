@@ -437,7 +437,12 @@ interface TopicSelection {
   coverage_id?: string;
 }
 
-async function selectTodaysTopic(elderId: string): Promise<TopicSelection> {
+const NOVELLA_STAGES = [
+  "lapsuus", "vanhemmat", "nuoruus", "kotoa_lahto",
+  "tyo", "parisuhde", "lasten_synty", "arvot",
+];
+
+async function selectTodaysTopic(elderId: string, format: string = "book"): Promise<TopicSelection> {
   // 1. Tarkista onko omaisen aihepyyntöjä odottamassa
   const { data: pendingRequests } = await supabase
     .from("legacy_topic_requests")
@@ -459,13 +464,19 @@ async function selectTodaysTopic(elderId: string): Promise<TopicSelection> {
   }
 
   // 2. Hae coverage_mapista sopiva aihe — VAIN aiheet jotka eivät ole jo "well_covered"
-  const { data: coverageRows } = await supabase
+  let coverageQuery = supabase
     .from("coverage_map")
     .select("id, life_stage, theme, status, depth_score, priority, requires_trust_first, last_discussed")
     .eq("elder_id", elderId)
     .in("status", ["not_started", "in_progress"])
     .order("priority", { ascending: false })
     .order("depth_score", { ascending: true });
+
+  if (format === "novella") {
+    coverageQuery = coverageQuery.in("life_stage", NOVELLA_STAGES);
+  }
+
+  const { data: coverageRows } = await coverageQuery;
 
   const callCount = await getCallCount(elderId);
 
@@ -639,7 +650,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Hae data rinnakkain
-    const [elderResult, profileResult, coverageResult, callsResult, highlightsResult, requestsResult] = await Promise.all([
+    const [elderResult, profileResult, coverageResult, callsResult, highlightsResult, requestsResult, subResult] = await Promise.all([
       supabase.from("elders").select("full_name").eq("id", elderId).maybeSingle(),
       supabase.from("legacy_profile").select("*").eq("elder_id", elderId).maybeSingle(),
       supabase.from("coverage_map").select("life_stage, theme, status, depth_score").eq("elder_id", elderId),
@@ -663,6 +674,11 @@ Deno.serve(async (req) => {
         .eq("status", "pending")
         .order("created_at", { ascending: true })
         .limit(1),
+      supabase
+        .from("legacy_subscriptions")
+        .select("book_format")
+        .eq("elder_id", elderId)
+        .maybeSingle(),
     ]);
 
     if (!elderFullName) {
@@ -670,9 +686,10 @@ Deno.serve(async (req) => {
     }
     const firstName = elderFullName.split(" ")[0]?.trim() || elderFullName;
     const profile = profileResult.data;
+    const bookFormat = (subResult.data as { book_format?: string } | null)?.book_format || "book";
 
     // 3. Valitse tämän päivän aihe
-    const topic = await selectTodaysTopic(elderId);
+    const topic = await selectTodaysTopic(elderId, bookFormat);
 
     // 4. Laske perustiedot
     const birthYear = profile?.birth_year || 1942;
