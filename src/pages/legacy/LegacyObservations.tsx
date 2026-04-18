@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Lightbulb, Award, Shield, Heart } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Award, Shield, Heart, AlertTriangle } from 'lucide-react';
 
 interface Obs {
   id: string;
@@ -19,6 +19,7 @@ const TYPE_META: Record<string, { label: string; Icon: typeof Lightbulb; color: 
   milestone: { label: 'Virstanpylväs', Icon: Award, color: 'text-sage' },
   sensitive_topic: { label: 'Herkkä aihe', Icon: Heart, color: 'text-terracotta' },
   boundary_respected: { label: 'Raja kunnioitettu', Icon: Shield, color: 'text-sage' },
+  consistency_issue: { label: 'Johdonmukaisuus', Icon: AlertTriangle, color: 'text-red-400' },
 };
 
 const LegacyObservations = () => {
