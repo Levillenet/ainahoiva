@@ -328,11 +328,6 @@ export default function LegacyBookView() {
     return <div className="text-cream/60">Ladataan kirjaa…</div>;
   }
 
-  const totalWords = chapters.reduce((sum, c) => sum + (c.word_count || 0), 0);
-  const completedChapters = chapters.filter(
-    (c) => c.status === 'final' || c.status === 'reviewed',
-  ).length;
-  const draftChapters = chapters.filter((c) => c.status === 'draft').length;
 
   return (
     <div className="space-y-6">
