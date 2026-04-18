@@ -13,7 +13,8 @@ const LegacyElderView = () => {
   const [coveragePct, setCoveragePct] = useState(0);
   const [target, setTarget] = useState<string>('—');
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
-  const [highlight, setHighlight] = useState<{ quote: string; created_at: string } | null>(null);
+  const [highlights, setHighlights] = useState<{ quote: string; created_at: string; context: string | null }[]>([]);
+  const [highlightIdx, setHighlightIdx] = useState(0);
   const [observations, setObservations] = useState<{ id: string; title: string; description: string | null; type: string; read_by_family: boolean | null; created_at: string }[]>([]);
   const [weekStats, setWeekStats] = useState({ calls: 0, durationMin: 0, avgMood: 0 });
   const [currentTopic, setCurrentTopic] = useState<{ life_stage: string; depth_score: number } | null>(null);
