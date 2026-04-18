@@ -19,6 +19,7 @@ import SmsLog from "./pages/SmsLog";
 import LegacyDashboard from "./pages/legacy/LegacyDashboard";
 import LegacyElderView from "./pages/legacy/LegacyElderView";
 import LegacyOnboarding from "./pages/legacy/LegacyOnboarding";
+import LegacyEdit from "./pages/legacy/LegacyEdit";
 import LegacyProgress from "./pages/legacy/LegacyProgress";
 import LegacyRequests from "./pages/legacy/LegacyRequests";
 import LegacyObservations from "./pages/legacy/LegacyObservations";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="muistoissa" element={<LegacyDashboard />} />
               <Route path="muistoissa/:elderId" element={<LegacyElderView />} />
               <Route path="muistoissa/:elderId/onboarding" element={<LegacyOnboarding />} />
+              <Route path="muistoissa/:elderId/muokkaa" element={<LegacyEdit />} />
               <Route path="muistoissa/:elderId/edistyminen" element={<LegacyProgress />} />
               <Route path="muistoissa/:elderId/pyynnot" element={<LegacyRequests />} />
               <Route path="muistoissa/:elderId/huomiot" element={<LegacyObservations />} />
