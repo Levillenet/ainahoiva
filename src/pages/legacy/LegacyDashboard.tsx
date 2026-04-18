@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { BookHeart, ArrowRight, Sparkles, FlaskConical } from 'lucide-react';
+import { BookHeart, ArrowRight, Sparkles, FlaskConical, ScrollText } from 'lucide-react';
 import { calcAge, formatMonthYear, LIFE_STAGES, startOfWeek, toDateString } from '@/lib/legacy';
 import { toast } from '@/hooks/use-toast';
 
@@ -485,28 +485,36 @@ Ritva: Niin.`,
                 <p className="text-sm text-cream/60 mt-1">Elämäntarinan kokoaminen kirjaksi</p>
               </div>
             </div>
-            {import.meta.env.DEV && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={seeding}>
-                    <FlaskConical className="w-3 h-3 mr-1" />
-                    {seeding ? 'Luodaan…' : 'Luo Ritva-testidata'}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Luodaan testivanhus</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Luodaan testivanhus Ritva kaikilla Muistoissa-tiedoilla (profiili, tilaus, edistymä, poiminnat, huomiot ja aihepyynnöt). Jatkaako?
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Peruuta</AlertDialogCancel>
-                    <AlertDialogAction onClick={seedRitvaData}>Luo testidata</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+            <div className="flex items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link to="/dashboard/admin/batch-log">
+                  <ScrollText className="w-3 h-3 mr-1" />
+                  Kirjailijan ajoloki
+                </Link>
+              </Button>
+              {import.meta.env.DEV && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={seeding}>
+                      <FlaskConical className="w-3 h-3 mr-1" />
+                      {seeding ? 'Luodaan…' : 'Luo Ritva-testidata'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Luodaan testivanhus</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Luodaan testivanhus Ritva kaikilla Muistoissa-tiedoilla (profiili, tilaus, edistymä, poiminnat, huomiot ja aihepyynnöt). Jatkaako?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Peruuta</AlertDialogCancel>
+                      <AlertDialogAction onClick={seedRitvaData}>Luo testidata</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
