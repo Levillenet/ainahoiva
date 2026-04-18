@@ -775,7 +775,11 @@ Deno.serve(async (req) => {
       now,
     });
 
-    const firstMessage = `Hei ${firstName}! Aina täällä. Onko teillä hetki jutella?`;
+    // Kontekstuaalinen avausviesti — viittaa edellisiin puheluihin jos niitä on
+    const hasPreviousCalls = lastCalls.length > 0;
+    const firstMessage = hasPreviousCalls
+      ? `Hei ${firstName}, Aina täällä taas. Onko teillä hetki jutella?`
+      : `Hei ${firstName}! Aina täällä. Onko teillä hetki jutella?`;
 
     console.log(`[vapi-muistoissa-request] Returning Muistoissa-assistant for ${elderFullName}, topic=${topic.label} (${topic.source})`);
 
