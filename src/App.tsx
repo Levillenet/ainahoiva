@@ -16,6 +16,12 @@ import Reports from "./pages/Reports";
 import Reminders from "./pages/Reminders";
 import SettingsPage from "./pages/SettingsPage";
 import SmsLog from "./pages/SmsLog";
+import LegacyDashboard from "./pages/legacy/LegacyDashboard";
+import LegacyElderView from "./pages/legacy/LegacyElderView";
+import LegacyOnboarding from "./pages/legacy/LegacyOnboarding";
+import LegacyProgress from "./pages/legacy/LegacyProgress";
+import LegacyRequests from "./pages/legacy/LegacyRequests";
+import LegacyObservations from "./pages/legacy/LegacyObservations";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +44,12 @@ const App = () => (
               <Route path="raportit" element={<Reports />} />
               <Route path="muistutukset" element={<Reminders />} />
               <Route path="viestit" element={<SmsLog />} />
+              <Route path="muistoissa" element={<LegacyDashboard />} />
+              <Route path="muistoissa/:elderId" element={<LegacyElderView />} />
+              <Route path="muistoissa/:elderId/onboarding" element={<LegacyOnboarding />} />
+              <Route path="muistoissa/:elderId/edistyminen" element={<LegacyProgress />} />
+              <Route path="muistoissa/:elderId/pyynnot" element={<LegacyRequests />} />
+              <Route path="muistoissa/:elderId/huomiot" element={<LegacyObservations />} />
               <Route path="asetukset" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

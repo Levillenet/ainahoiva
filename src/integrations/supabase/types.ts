@@ -169,6 +169,59 @@ export type Database = {
           },
         ]
       }
+      coverage_map: {
+        Row: {
+          created_at: string | null
+          depth_score: number | null
+          elder_id: string
+          id: string
+          is_sensitive: boolean | null
+          last_discussed: string | null
+          life_stage: string
+          priority: number | null
+          questions_asked: number | null
+          requires_trust_first: boolean | null
+          status: string | null
+          theme: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          depth_score?: number | null
+          elder_id: string
+          id?: string
+          is_sensitive?: boolean | null
+          last_discussed?: string | null
+          life_stage: string
+          priority?: number | null
+          questions_asked?: number | null
+          requires_trust_first?: boolean | null
+          status?: string | null
+          theme?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          depth_score?: number | null
+          elder_id?: string
+          id?: string
+          is_sensitive?: boolean | null
+          last_discussed?: string | null
+          life_stage?: string
+          priority?: number | null
+          questions_asked?: number | null
+          requires_trust_first?: boolean | null
+          status?: string | null
+          theme?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coverage_map_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       elder_memory: {
         Row: {
           content: string
@@ -413,6 +466,229 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "family_members_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_highlights: {
+        Row: {
+          context: string | null
+          created_at: string | null
+          elder_id: string
+          id: string
+          quote: string
+          target_chapter: string | null
+          week_start: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          quote: string
+          target_chapter?: string | null
+          week_start: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          quote?: string
+          target_chapter?: string | null
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_highlights_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_observations: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          elder_id: string
+          id: string
+          read_by_family: boolean | null
+          title: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          elder_id: string
+          id?: string
+          read_by_family?: boolean | null
+          title: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          elder_id?: string
+          id?: string
+          read_by_family?: boolean | null
+          title?: string
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_observations_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: false
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_profile: {
+        Row: {
+          birth_place: string | null
+          birth_year: number | null
+          children_info: Json | null
+          created_at: string | null
+          dialect_region: string | null
+          elder_id: string
+          favorite_topics: string | null
+          health_notes: string | null
+          hobbies: string | null
+          id: string
+          marital_status: string | null
+          onboarding_completed: boolean | null
+          parents_info: Json | null
+          profession: string | null
+          sensitive_topics: string | null
+          special_notes: string | null
+          spouse_info: Json | null
+        }
+        Insert: {
+          birth_place?: string | null
+          birth_year?: number | null
+          children_info?: Json | null
+          created_at?: string | null
+          dialect_region?: string | null
+          elder_id: string
+          favorite_topics?: string | null
+          health_notes?: string | null
+          hobbies?: string | null
+          id?: string
+          marital_status?: string | null
+          onboarding_completed?: boolean | null
+          parents_info?: Json | null
+          profession?: string | null
+          sensitive_topics?: string | null
+          special_notes?: string | null
+          spouse_info?: Json | null
+        }
+        Update: {
+          birth_place?: string | null
+          birth_year?: number | null
+          children_info?: Json | null
+          created_at?: string | null
+          dialect_region?: string | null
+          elder_id?: string
+          favorite_topics?: string | null
+          health_notes?: string | null
+          hobbies?: string | null
+          id?: string
+          marital_status?: string | null
+          onboarding_completed?: boolean | null
+          parents_info?: Json | null
+          profession?: string | null
+          sensitive_topics?: string | null
+          special_notes?: string | null
+          spouse_info?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_profile_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: true
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_subscriptions: {
+        Row: {
+          book_target_chapters: number | null
+          created_at: string | null
+          elder_id: string
+          id: string
+          started_at: string | null
+          status: string | null
+          target_completion_date: string | null
+          weekly_call_count: number | null
+        }
+        Insert: {
+          book_target_chapters?: number | null
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          target_completion_date?: string | null
+          weekly_call_count?: number | null
+        }
+        Update: {
+          book_target_chapters?: number | null
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          target_completion_date?: string | null
+          weekly_call_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_subscriptions_elder_id_fkey"
+            columns: ["elder_id"]
+            isOneToOne: true
+            referencedRelation: "elders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_topic_requests: {
+        Row: {
+          created_at: string | null
+          elder_id: string
+          id: string
+          note: string | null
+          requested_by: string
+          status: string | null
+          topic: string
+        }
+        Insert: {
+          created_at?: string | null
+          elder_id: string
+          id?: string
+          note?: string | null
+          requested_by: string
+          status?: string | null
+          topic: string
+        }
+        Update: {
+          created_at?: string | null
+          elder_id?: string
+          id?: string
+          note?: string | null
+          requested_by?: string
+          status?: string | null
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_topic_requests_elder_id_fkey"
             columns: ["elder_id"]
             isOneToOne: false
             referencedRelation: "elders"
