@@ -52,7 +52,44 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Vanhus ei ole aktiivinen" }, 400);
     }
 
-    // Käynnistä Vapi-puhelu
+    // Hae dynaaminen transient-assistant (sisältää elderin profiilin, coverage_mapin, edelliset puhelut)
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const assistantReqRes = await fetch(
+      `${SUPABASE_URL}/functions/v1/vapi-muistoissa-request`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          message: {
+            type: "assistant-request",
+            call: {
+              metadata: { elderId, callType: "muistoissa" },
+              customer: { number: elder.phone_number, name: elder.full_name },
+            },
+          },
+        }),
+      },
+    );
+
+    if (!assistantReqRes.ok) {
+      const errText = await assistantReqRes.text();
+      console.error("[muistoissa-start-call] vapi-muistoissa-request failed:", errText);
+      return jsonResponse({ error: `Dynaamisen promptin haku epäonnistui: ${errText}` }, 500);
+    }
+
+    const assistantPayload = await assistantReqRes.json();
+    const transientAssistant = assistantPayload.assistant;
+
+    if (!transientAssistant) {
+      return jsonResponse({ error: "Dynaaminen assistant puuttuu vastauksesta" }, 500);
+    }
+
+    // Käynnistä Vapi-puhelu transient-assistantilla (sisältää dynaamisen system promptin)
     const vapiResponse = await fetch("https://api.vapi.ai/call/phone", {
       method: "POST",
       headers: {
@@ -60,8 +97,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        // EI assistantId:tä → Vapi lähettää assistant-request-tapahtuman serverUrl:iin
-        // ja vapi-muistoissa-request palauttaa dynaamisen transient assistantin
+        assistant: transientAssistant,
         phoneNumberId: VAPI_PHONE_NUMBER_ID,
         customer: {
           number: elder.phone_number,
