@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Quote, MessageCircle, ArrowLeft, Send, Eye } from 'lucide-react';
-import { startOfWeek } from '@/lib/legacy';
+import { startOfWeek, lifeStageLabel } from '@/lib/legacy';
 
 const LegacyElderView = () => {
   const { elderId } = useParams();
@@ -14,17 +14,19 @@ const LegacyElderView = () => {
   const [highlight, setHighlight] = useState<{ quote: string; created_at: string } | null>(null);
   const [observations, setObservations] = useState<{ id: string; title: string; description: string | null; type: string; read_by_family: boolean | null; created_at: string }[]>([]);
   const [weekStats, setWeekStats] = useState({ calls: 0, durationMin: 0, avgMood: 0 });
+  const [currentTopic, setCurrentTopic] = useState<{ life_stage: string; depth_score: number } | null>(null);
 
   useEffect(() => {
     if (!elderId) return;
     const load = async () => {
-      const [{ data: e }, { data: sub }, { data: cov }, { data: hl }, { data: obs }, { data: calls }] = await Promise.all([
+      const [{ data: e }, { data: sub }, { data: cov }, { data: hl }, { data: obs }, { data: calls }, { data: topic }] = await Promise.all([
         supabase.from('elders').select('full_name').eq('id', elderId).maybeSingle(),
         supabase.from('legacy_subscriptions').select('target_completion_date').eq('elder_id', elderId).maybeSingle(),
         supabase.from('coverage_map').select('depth_score').eq('elder_id', elderId),
         supabase.from('legacy_highlights').select('quote, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('legacy_observations').select('id, title, description, type, read_by_family, created_at').eq('elder_id', elderId).order('created_at', { ascending: false }).limit(3),
         supabase.from('call_reports').select('duration_seconds, mood_score, called_at').eq('elder_id', elderId).gte('called_at', startOfWeek().toISOString()),
+        supabase.from('coverage_map').select('life_stage, depth_score').eq('elder_id', elderId).eq('status', 'in_progress').order('last_discussed', { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
       ]);
 
       setElder(e);

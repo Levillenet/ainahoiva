@@ -75,6 +75,8 @@ const LegacyOnboarding = () => {
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'children' });
   const hasChildren = form.watch('has_children');
+  const maritalStatus = form.watch('marital_status');
+  const showSpouseFields = !!maritalStatus && maritalStatus !== 'naimaton';
 
   const stepFields: Record<number, (keyof FormValues)[]> = {
     1: ['birth_year', 'birth_place', 'dialect_region', 'marital_status'],
@@ -89,7 +91,34 @@ const LegacyOnboarding = () => {
   };
 
   const onSubmit = async (values: FormValues) => {
-    if (!elderId) return;
+    if (!elderId) {
+      toast({
+        title: 'Virhe',
+        description: 'Vanhuksen tunniste puuttuu. Palaa etusivulle.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validoi koko lomake ja ohjaa käyttäjä ensimmäiseen virheelliseen askeleeseen
+    const valid = await form.trigger();
+    if (!valid) {
+      const errors = form.formState.errors;
+      const firstErrorField = Object.keys(errors)[0] as keyof FormValues;
+      const stepWithError = Object.entries(stepFields).find(
+        ([, fields]) => fields.includes(firstErrorField),
+      )?.[0];
+      if (stepWithError) {
+        setStep(Number(stepWithError));
+      }
+      toast({
+        title: 'Tarkista tiedot',
+        description: 'Osa pakollisista kentistä puuttuu.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const { error: profileErr } = await supabase.from('legacy_profile').upsert({
@@ -98,7 +127,9 @@ const LegacyOnboarding = () => {
         birth_place: values.birth_place,
         dialect_region: values.dialect_region,
         marital_status: values.marital_status,
-        spouse_info: values.spouse_name ? { name: values.spouse_name, status: values.spouse_status } : null,
+        spouse_info: showSpouseFields && values.spouse_name
+          ? { name: values.spouse_name, status: values.spouse_status }
+          : null,
         children_info: values.has_children === 'yes' ? values.children : [],
         parents_info: {
           mother: { name: values.mother_name, note: values.mother_note },
@@ -112,7 +143,10 @@ const LegacyOnboarding = () => {
         special_notes: values.special_notes,
         onboarding_completed: true,
       }, { onConflict: 'elder_id' });
-      if (profileErr) throw profileErr;
+      if (profileErr) {
+        console.error('Profiilin tallennus epäonnistui:', profileErr);
+        throw new Error('Profiilin tallennus: ' + profileErr.message);
+      }
 
       const targetDate = new Date();
       targetDate.setFullYear(targetDate.getFullYear() + 1);
@@ -124,13 +158,20 @@ const LegacyOnboarding = () => {
         book_target_chapters: 15,
         weekly_call_count: 2,
       }, { onConflict: 'elder_id' });
-      if (subErr) throw subErr;
+      if (subErr) {
+        console.error('Tilauksen tallennus epäonnistui:', subErr);
+        throw new Error('Tilauksen tallennus: ' + subErr.message);
+      }
 
-      const { data: existingCov } = await supabase
+      const { data: existingCov, error: covCheckErr } = await supabase
         .from('coverage_map')
         .select('id')
         .eq('elder_id', elderId)
         .limit(1);
+      if (covCheckErr) {
+        console.error('Coverage-tarkistus epäonnistui:', covCheckErr);
+        throw new Error('Coverage-tarkistus: ' + covCheckErr.message);
+      }
 
       if (!existingCov?.length) {
         const rows = LIFE_STAGES.map((s) => ({
@@ -144,7 +185,10 @@ const LegacyOnboarding = () => {
           depth_score: 0,
         }));
         const { error: covErr } = await supabase.from('coverage_map').insert(rows);
-        if (covErr) throw covErr;
+        if (covErr) {
+          console.error('Coverage-luonti epäonnistui:', covErr);
+          throw new Error('Coverage-luonti: ' + covErr.message);
+        }
       }
 
       toast({ title: 'Muistoissa aktivoitu', description: 'Aina aloittaa pian ensimmäiset haastattelut.' });
@@ -155,6 +199,9 @@ const LegacyOnboarding = () => {
       setSubmitting(false);
     }
   };
+
+  const childrenCount = form.watch('children')?.length ?? 0;
+  const sensitiveTopics = form.watch('sensitive_topics') ?? '';
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -172,7 +219,7 @@ const LegacyOnboarding = () => {
           <Progress value={(step / 4) * 100} className="mt-2" />
         </CardHeader>
         <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={(e) => e.preventDefault()} className="space-y-5">
             {step === 1 && (
               <>
                 <Field label="Syntymävuosi" error={form.formState.errors.birth_year?.message}>
@@ -228,25 +275,29 @@ const LegacyOnboarding = () => {
 
             {step === 2 && (
               <>
-                <Field label="Puolison nimi">
-                  <Input {...form.register('spouse_name')} placeholder="esim. Paavo" />
-                </Field>
-                <Field label="Puolison tilanne">
-                  <Controller
-                    control={form.control}
-                    name="spouse_status"
-                    render={({ field }) => (
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger><SelectValue placeholder="Valitse" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="elossa">Elossa</SelectItem>
-                          <SelectItem value="kuollut">Kuollut</SelectItem>
-                          <SelectItem value="eronnut">Eronnut</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </Field>
+                {showSpouseFields && (
+                  <>
+                    <Field label="Puolison nimi">
+                      <Input {...form.register('spouse_name')} placeholder="esim. Paavo" />
+                    </Field>
+                    <Field label="Puolison tilanne">
+                      <Controller
+                        control={form.control}
+                        name="spouse_status"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger><SelectValue placeholder="Valitse" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="elossa">Elossa</SelectItem>
+                              <SelectItem value="kuollut">Kuollut</SelectItem>
+                              <SelectItem value="eronnut">Eronnut</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </Field>
+                  </>
+                )}
                 <Field label="Onko lapsia?">
                   <Controller
                     control={form.control}
@@ -333,8 +384,25 @@ const LegacyOnboarding = () => {
                 <Field label="Erityistä Ainan tulisi tietää">
                   <Textarea {...form.register('special_notes')} rows={4} />
                 </Field>
-                <div className="p-3 rounded-md bg-muted/30 border border-border text-xs text-cream/70">
-                  Tarkista vielä: syntymä {form.watch('birth_year')}, {form.watch('birth_place') || '—'} • {form.watch('dialect_region') || '—'} • {form.watch('marital_status') || '—'}
+                <div className="p-4 rounded-md bg-muted/30 border border-border text-sm text-cream/80 space-y-2">
+                  <p className="font-medium text-cream">Tarkista tiedot:</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div>
+                      <span className="text-cream/50">Syntymävuosi:</span> {form.watch('birth_year')}
+                      {' '}({new Date().getFullYear() - (form.watch('birth_year') || 0)} v)
+                    </div>
+                    <div><span className="text-cream/50">Paikka:</span> {form.watch('birth_place') || '—'}</div>
+                    <div><span className="text-cream/50">Murre:</span> {form.watch('dialect_region') || '—'}</div>
+                    <div><span className="text-cream/50">Siviilisääty:</span> {form.watch('marital_status') || '—'}</div>
+                    <div><span className="text-cream/50">Lapsia:</span> {form.watch('has_children') === 'yes' ? childrenCount : 'ei'}</div>
+                    <div><span className="text-cream/50">Terveys:</span> {form.watch('health_notes') || '—'}</div>
+                  </div>
+                  {sensitiveTopics && (
+                    <div className="pt-2 border-t border-border">
+                      <span className="text-cream/50 text-xs">Kielletyt aiheet: </span>
+                      <span className="text-xs">{sensitiveTopics.slice(0, 100)}{sensitiveTopics.length > 100 ? '…' : ''}</span>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -348,7 +416,12 @@ const LegacyOnboarding = () => {
                   Seuraava <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
               ) : (
-                <Button type="submit" disabled={submitting} className="bg-gold text-navy hover:bg-gold/90">
+                <Button
+                  type="button"
+                  onClick={() => onSubmit(form.getValues())}
+                  disabled={submitting}
+                  className="bg-gold text-navy hover:bg-gold/90"
+                >
                   {submitting ? 'Tallennetaan…' : 'Tallenna ja aktivoi Muistoissa'}
                 </Button>
               )}
