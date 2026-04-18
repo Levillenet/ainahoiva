@@ -391,6 +391,64 @@ Rouva Saarnio piti hänestä erityisesti. "Ritva osaa kuunnella", hän sanoi ker
       );
       if (psErr) throw new Error('Profiiliyhteenveto: ' + psErr.message);
 
+      // 8. Yksi käsittelemätön Muistoissa-puhelu sisaruksista (Pentti & Helvi, ei Tauno)
+      const { error: callErr } = await supabase.from('call_reports').insert({
+        elder_id: ritvaId,
+        call_type: 'muistoissa',
+        called_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        duration_seconds: 720,
+        transcript: `Aina: Hei Ritva. Aina täällä. Onko teillä hetki jutella?
+
+Ritva: On kyllä. Istun tässä keittiössä.
+
+Aina: Hyvä. Halusin kysyä tänään teidän sisaruksistanne. Oliko teillä sisaruksia?
+
+Ritva: Oli kyllä. Kolme. Pentti oli vanhin, sitten minä, Helvi ja Tauno nuorimpana.
+
+Aina: Pentti vanhimpana. Millainen isoveli hän oli teille?
+
+Ritva: Pentti oli vähän äksy. Ei sellainen leikkisä. Opiskeli paljon. Äiti sanoi aina että Pentti ei istu paikallaan jos saa kirjan käsiin. Hänestä tuli opettaja. Kansakoulun opettaja. Töihin meni Ylä-Savoon, Iisalmeen, siellä hän asui koko aikuisikänsä.
+
+Aina: Mm. Kävittekö te hänen luonaan?
+
+Ritva: Kävin kyllä. Paavon kanssa aina kesällä, yhden viikonlopun. Penttiltä oli pieni mökki järven rannalla. Hän oli naimisissa Marjatan kanssa. Marjatta oli opettaja myös. Heillä oli kaksi lasta.
+
+Aina: Onko Pentti vielä elossa?
+
+Ritva: Kuoli 2018. Sydämen asia. Marjatta on vielä elossa, soitelee joskus.
+
+Aina: Entä Helvi — mitä muistatte hänestä?
+
+Ritva: Helvi oli toisenlainen kuin Pentti. Puhelias. Nauroi paljon. Mä muistan miten lapsena leikittiin yhdessä pihalla, me tehtiin kotia kiviin ja kanto-oksiin. Helvi keksi aina jotain uutta leikkiä. Hän oli neljä vuotta nuorempi kuin minä.
+
+Aina: Mitä hänestä tuli aikuisena?
+
+Ritva: Helvi muutti Ruotsiin 60-luvun lopulla. Göteborgiin. Sinne oli moni muuttanut silloin. Hän meni naimisiin ruotsalaisen kanssa, Larsin kanssa. Jäi sinne. Puhui lasten kanssa ruotsiksi. Suomea puhuttiin kun soiteltiin.
+
+Aina: Muistatteko kun hän lähti?
+
+Ritva: Muistan kyllä. Äiti itki. Isä ei sanonut mitään mutta meni pihalle pilkkomaan puita tuntikausiksi. Helvi oli 24-vuotias. Kesäkuu 1967 se oli.
+
+Aina: Pidittekö yhteyttä?
+
+Ritva: Pidettiin. Kirjoitettiin kirjeitä ensin, sitten soiteltiin. Viimeiset vuodet ennen kuin Helvi kuoli 2021, käytiin Skype-puheluja. Oppi käyttämään tietokonetta vanhoilla päivillä.
+
+Aina: Entä Tauno — nuorin?
+
+Ritva: Tauno... no, Taunosta en oikein tiedä. Hän oli niin paljon nuorempi, kahdeksan vuotta. Kun minä muutin Helsinkiin, hän oli vasta yksitoista.
+
+Aina: Mm.
+
+Ritva: Jätetään Tauno tänään. Toiskertaan.
+
+Aina: Selvä. Kiitos että kerroitte Pentistä ja Helvistä. Oli mukava kuulla heistä.
+
+Ritva: Niin.`,
+        ai_summary: null,
+        processed_at: null,
+      });
+      if (callErr) throw new Error('Käsittelemätön puhelu: ' + callErr.message);
+
       toast({
         title: 'Ritva-testidata luotu',
         description: 'Vanhus näkyy nyt Muistoissa-listassa.',
