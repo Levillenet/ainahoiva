@@ -946,10 +946,20 @@ async function extractCognitiveAssessment(transcript: string, elderId: string, c
   const prompt = cognitiveEnabled
     ? `Analysoi tämä puhelun transkripti kognitiivisen seurannan näkökulmasta.
 
-Etsi merkkejä seuraavista:
-1. Orientaatio: Tiesiköhän vanhus päivän, kuukauden, vuodenajan?
-2. Muisti: Jos mainittiin kolme sanaa — muistettiinko ne?
-3. Sujuvuus: Löysivätkö sanat helposti vai etsittiinkö niitä?
+⚠️ TÄRKEÄ EROTUS — kenen muistivika? ⚠️
+Aina (AI-assistentti) EI aina tiedä mitä vanhus on aiemmin kertonut.
+- Jos VANHUS unohtaa oman tekemisensä tai sekoittaa tosiasioita → mahdollinen muistihavainto.
+- Jos AINA (assistentti) ei muista mitä vanhus on aiemmin kertonut, ja vanhus joutuu
+  toistamaan tai vahvistamaan asiaa → TÄMÄ EI OLE vanhuksen ongelma. Älä pisteytä häntä.
+- Jos vanhus toistuvasti vain VAHVISTAA Ainan kysymyksiä ("joo olin", "joo tein", "kyllä")
+  → tämä on assistentin huono kuuntelu, ei vanhuksen muistivika.
+- Jos vanhus KORJAA Ainaa ("ei vaan eilen, en tänään"), se on merkki HYVÄSTÄ muistista.
+
+Pisteytä vanhusta vain selkeistä kognitiivisista signaaleista:
+1. Orientaatio: Sekava aikaorientaatio (väärä vuosi, kuukausi, vuodenaika).
+2. Muisti: Vanhus itse unohtaa juuri kertomansa, tai sanoo "en muista" omista tekemisistään.
+3. Sujuvuus: Sananhakuvaikeudet, lauseet jäävät kesken, parafrasiat.
+4. Saman kysymyksen toistaminen useita kertoja PERÄKKÄIN samassa puhelussa.
 
 Palauta JSON:
 {
@@ -957,20 +967,31 @@ Palauta JSON:
   "memory_score": 0-3,
   "fluency_score": 0-3,
   "overall_impression": "normaali|lievä huoli|selkeä huoli",
-  "observations": "lyhyt kuvaus havainnoista suomeksi",
+  "observations": "lyhyt kuvaus havainnoista suomeksi — ERITTELE selvästi onko ongelma vanhuksessa vai assistentissa",
   "flags": ["lista huolista jos on, muuten tyhjä array"]
 }
 
 Transkripti:
 ${truncated}`
     : `Tarkista onko tässä puhelussa merkkejä selkeästä sekavuudesta tai muistiongelmista.
+
+⚠️ TÄRKEÄ: Älä tulkitse Ainan (assistentin) tietämättömyyttä vanhuksen muistivikana.
+Jos vanhus joutuu toistamaan asioita Ainalle, se EI ole kognitiivinen huoli.
+Vanhuksen vahvistavat vastaukset ("joo", "kyllä") EIVÄT ole merkki muistivikaisuudesta.
+
+Merkitse "selkeä huoli" VAIN jos vanhus itse:
+- on selvästi sekava ajan/paikan suhteen
+- ei ymmärrä peruskysymyksiä
+- toistaa SAMAA kysymystä useita kertoja peräkkäin
+- ei muista juuri sanomaansa
+
 Palauta JSON:
 {
   "orientation_score": null,
   "memory_score": null,
   "fluency_score": null,
   "overall_impression": "normaali|lievä huoli|selkeä huoli",
-  "observations": "mainitse vain jos jotain selkeästi poikkeavaa, muuten tyhjä string",
+  "observations": "mainitse vain jos vanhuksessa selkeästi poikkeavaa, muuten tyhjä string",
   "flags": []
 }
 
