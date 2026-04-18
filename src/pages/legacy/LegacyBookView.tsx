@@ -358,7 +358,108 @@ export default function LegacyBookView() {
                     </>
                   ) : (
                     'Käsittele kirjailijalla'
-                  )}
+      )}
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-cream text-base flex items-center gap-2">
+            <Wand2 className="w-4 h-4 text-gold" />
+            Kirjailijan kokonaistoiminnot
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <Button
+              size="sm"
+              onClick={compileFullBook}
+              disabled={compiling || checking}
+              className="bg-gold/80 hover:bg-gold text-background"
+            >
+              {compiling ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                  Kirjoitetaan koko kirjaa…
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-3 h-3 mr-2" />
+                  Kirjoita koko kirja uudelleen
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={checkConsistency}
+              disabled={compiling || checking}
+              className="border-border text-cream hover:bg-muted/30"
+            >
+              {checking ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                  Tarkistetaan…
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-3 h-3 mr-2" />
+                  Tarkista johdonmukaisuus
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-cream/50 leading-relaxed">
+            <strong className="text-cream/70">Kirjoita koko kirja uudelleen</strong> generoi kaikki
+            luvut Claude Opus 4.7:llä yhdellä kutsulla — tyyliyhtenäisyys on taattu.{' '}
+            <strong className="text-cream/70">Tarkista johdonmukaisuus</strong> etsii ristiriitoja
+            muistiinpanoista (Claude Sonnet 4.6, halvempi).
+          </p>
+
+          {consistencyIssues.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border space-y-2">
+              <p className="text-sm text-cream font-medium">
+                Löydetyt ongelmat ({consistencyIssues.length}):
+              </p>
+              {consistencyIssues.map((issue, i) => {
+                const severityClass =
+                  issue.severity === 'error'
+                    ? 'border-red-800/50 bg-red-950/20'
+                    : issue.severity === 'warning'
+                      ? 'border-amber-800/50 bg-amber-950/20'
+                      : 'border-blue-800/50 bg-blue-950/20';
+                const severityBadge =
+                  issue.severity === 'error'
+                    ? 'bg-red-900/40 text-red-200'
+                    : issue.severity === 'warning'
+                      ? 'bg-amber-900/40 text-amber-200'
+                      : 'bg-blue-900/40 text-blue-200';
+                return (
+                  <div key={i} className={`p-3 rounded-md border ${severityClass}`}>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-sm text-cream font-medium">{issue.title}</p>
+                      <span className={`text-[10px] px-2 py-0.5 rounded ${severityBadge}`}>
+                        {issue.severity}
+                      </span>
+                    </div>
+                    <p className="text-xs text-cream/70 whitespace-pre-line">
+                      {issue.description}
+                    </p>
+                    {issue.affected_chapters && issue.affected_chapters.length > 0 && (
+                      <p className="text-[10px] text-cream/50 mt-2">
+                        Luvut: {issue.affected_chapters.join(', ')}
+                      </p>
+                    )}
+                    {issue.suggested_action && (
+                      <p className="text-[10px] text-cream/50 mt-1">
+                        Ehdotus: {issue.suggested_action}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
                 </Button>
               </div>
             ))}
