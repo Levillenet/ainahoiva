@@ -5,10 +5,23 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
+function vapiResult(toolCallId: string, text: string) {
+  const oneLine = String(text).replace(/\s+/g, " ").trim();
+  return new Response(
+    JSON.stringify({ results: [{ toolCallId, result: oneLine }] }),
+    { status: 200, headers: { "Content-Type": "application/json" } }
+  );
+}
+
 Deno.serve(async (req) => {
+  let toolCallId = "";
   try {
     const body = await req.json();
-    const toolCall = body?.message?.toolCalls?.[0];
+    const toolCall =
+      body?.message?.toolCallList?.[0] ??
+      body?.message?.toolCalls?.[0];
+    toolCallId = toolCall?.id ?? "";
+
     const args = toolCall?.function?.arguments ?? body;
     const callerNumber = body?.message?.call?.customer?.number;
 
@@ -17,11 +30,10 @@ Deno.serve(async (req) => {
     });
     const elder = elderMatch?.[0] ?? null;
 
+    // Palautetaan aina "ok" — tämä tool on "hiljainen tallennus"
+    // eikä GPT:n ole tarkoitus kertoa vanhukselle mitään.
     if (!elder) {
-      return new Response(
-        JSON.stringify({ result: "ok" }),
-        { status: 200 }
-      );
+      return vapiResult(toolCallId, "ok");
     }
 
     await supabase.from("elder_memory").insert({
@@ -30,15 +42,9 @@ Deno.serve(async (req) => {
       content: args.content,
     });
 
-    return new Response(
-      JSON.stringify({ result: "ok" }),
-      { status: 200 }
-    );
+    return vapiResult(toolCallId, "ok");
   } catch (error) {
     console.error("add-memory error:", error);
-    return new Response(
-      JSON.stringify({ result: "ok" }),
-      { status: 200 }
-    );
+    return vapiResult(toolCallId, "ok");
   }
 });

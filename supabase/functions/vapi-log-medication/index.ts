@@ -5,10 +5,23 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
+function vapiResult(toolCallId: string, text: string) {
+  const oneLine = String(text).replace(/\s+/g, " ").trim();
+  return new Response(
+    JSON.stringify({ results: [{ toolCallId, result: oneLine }] }),
+    { status: 200, headers: { "Content-Type": "application/json" } }
+  );
+}
+
 Deno.serve(async (req) => {
+  let toolCallId = "";
   try {
     const body = await req.json();
-    const toolCall = body?.message?.toolCalls?.[0];
+    const toolCall =
+      body?.message?.toolCallList?.[0] ??
+      body?.message?.toolCalls?.[0];
+    toolCallId = toolCall?.id ?? "";
+
     const args = toolCall?.function?.arguments ?? body;
     const callerNumber = body?.message?.call?.customer?.number;
 
@@ -18,10 +31,7 @@ Deno.serve(async (req) => {
     const elder = elderMatch?.[0] ?? null;
 
     if (!elder) {
-      return new Response(
-        JSON.stringify({ result: "En löydä tietojanne." }),
-        { status: 200 }
-      );
+      return vapiResult(toolCallId, "En löydä tietojanne.");
     }
 
     const today = new Date().toISOString().split("T")[0];
@@ -35,48 +45,34 @@ Deno.serve(async (req) => {
       .eq(scheduledTime, true);
 
     if (!medications?.length) {
-      return new Response(
-        JSON.stringify({ result: "Ei lääkkeitä kirjattuna tälle ajankohdalle." }),
-        { status: 200 }
-      );
+      return vapiResult(toolCallId, "Ei lääkkeitä kirjattuna tälle ajankohdalle.");
     }
 
     for (const med of medications) {
-      await supabase
-        .from("medication_logs")
-        .upsert(
-          {
-            elder_id: elder.id,
-            medication_id: med.id,
-            medication_name: `${med.name} ${med.dosage}`,
-            scheduled_time: scheduledTime,
-            taken,
-            not_taken: !taken,
-            log_date: today,
-            taken_at: taken ? new Date().toISOString() : null,
-            confirmed_by: "aina_call",
-          },
-          {
-            onConflict: "elder_id,medication_id,scheduled_time,log_date",
-          }
-        );
+      await supabase.from("medication_logs").upsert(
+        {
+          elder_id: elder.id,
+          medication_id: med.id,
+          medication_name: `${med.name} ${med.dosage}`,
+          scheduled_time: scheduledTime,
+          taken,
+          not_taken: !taken,
+          log_date: today,
+          taken_at: taken ? new Date().toISOString() : null,
+          confirmed_by: "aina_call",
+        },
+        { onConflict: "elder_id,medication_id,scheduled_time,log_date" }
+      );
     }
 
     const medNames = medications.map((m) => `${m.name} ${m.dosage}`).join(", ");
-
     const response = taken
       ? `Merkitty otetuksi: ${medNames}. Hienoa!`
       : `Merkitty ottamattomaksi: ${medNames}. Muistakaa ottaa ne pian!`;
 
-    return new Response(
-      JSON.stringify({ result: response }),
-      { status: 200 }
-    );
+    return vapiResult(toolCallId, response);
   } catch (error) {
     console.error("log-medication error:", error);
-    return new Response(
-      JSON.stringify({ result: "Lääkkeiden kirjaus epäonnistui." }),
-      { status: 200 }
-    );
+    return vapiResult(toolCallId, "Lääkkeiden kirjaus epäonnistui.");
   }
 });
