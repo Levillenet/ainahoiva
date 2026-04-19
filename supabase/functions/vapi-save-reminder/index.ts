@@ -52,7 +52,15 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     const confirmMsg =
-      `AinaHoiva muistutus tallennettu: ${args.message} — ${formatDateTime(remindAt)}`;
+      `AinaHoiva muistutus tallennettu: ${args.message} — ` +
+      `${new Intl.DateTimeFormat("fi-FI", {
+        timeZone: "Europe/Helsinki",
+        weekday: "long",
+        day: "numeric",
+        month: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(remindAt))}`;
 
     await fetch(
       `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`,
