@@ -136,16 +136,66 @@ function parseDateTime(date: string, time: string): string {
   return new Date(utcMillis).toISOString();
 }
 
-function formatDateTime(isoString: string): string {
-  // Intl.DateTimeFormat hoitaa aikavyöhykemuunnoksen oikein
-  // ilman manuaalista offsettia
+// Muuntaa UTC-isoajan suomalaiseksi päivän nimeksi muodossa
+// "sunnuntaina", "maanantaina" jne. (ajan adverbiaalimuoto).
+function formatFinnishWeekday(isoString: string): string {
   const date = new Date(isoString);
-  return new Intl.DateTimeFormat("fi-FI", {
+  const weekday = new Intl.DateTimeFormat("fi-FI", {
     timeZone: "Europe/Helsinki",
     weekday: "long",
-    day: "numeric",
-    month: "numeric",
+  }).format(date);
+  // "sunnuntai" -> "sunnuntaina"
+  return weekday + "na";
+}
+
+// Muuntaa tunnit ja minuutit suomalaisiksi sanoiksi luonnollisessa muodossa.
+// Käytetään sanoja numeroiden sijaan jotta malli ei voi lukea niitä englanniksi.
+function formatTimeAsFinnishWords(isoString: string): string {
+  const date = new Date(isoString);
+
+  const parts = new Intl.DateTimeFormat("fi-FI", {
+    timeZone: "Europe/Helsinki",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
+    hour12: false,
+  }).formatToParts(date);
+
+  const hourStr = parts.find((p) => p.type === "hour")?.value ?? "0";
+  const minuteStr = parts.find((p) => p.type === "minute")?.value ?? "0";
+  const hours = parseInt(hourStr, 10);
+  const minutes = parseInt(minuteStr, 10);
+
+  const numberWord = (n: number): string => {
+    const ones = [
+      "nolla", "yksi", "kaksi", "kolme", "neljä",
+      "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän",
+    ];
+    const teens = [
+      "kymmenen", "yksitoista", "kaksitoista", "kolmetoista", "neljätoista",
+      "viisitoista", "kuusitoista", "seitsemäntoista", "kahdeksantoista", "yhdeksäntoista",
+    ];
+    const tens = [
+      "", "", "kaksikymmentä", "kolmekymmentä", "neljäkymmentä",
+      "viisikymmentä",
+    ];
+
+    if (n < 10) return ones[n];
+    if (n < 20) return teens[n - 10];
+    const t = Math.floor(n / 10);
+    const o = n % 10;
+    if (o === 0) return tens[t];
+    return `${tens[t]}${ones[o]}`;
+  };
+
+  const hourWord = numberWord(hours);
+
+  if (minutes === 0) {
+    return `${hourWord} nolla nolla`;
+  }
+
+  if (minutes < 10) {
+    return `${hourWord} nolla ${numberWord(minutes)}`;
+  }
+
+  return `${hourWord} ${numberWord(minutes)}`;
 }
