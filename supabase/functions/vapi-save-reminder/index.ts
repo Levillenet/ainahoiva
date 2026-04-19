@@ -79,10 +79,14 @@ Deno.serve(async (req) => {
       }
     );
 
-    return vapiResult(
-      toolCallId,
-      `Muistutus tallennettu. Muistutan Teitä ${args.message} ${formatDateTime(remindAt)}.`
-    );
+    const weekday = formatFinnishWeekday(remindAt);
+    const timeWords = formatTimeAsFinnishWords(remindAt);
+    const confirmText =
+      `Lue tämä vastaus vanhukselle SANASTA SANAAN suomeksi ` +
+      `ilman mitään muutoksia: Selvä muistutan teitä ${args.message} ` +
+      `${weekday} kello ${timeWords}.`;
+
+    return vapiResult(toolCallId, confirmText);
   } catch (error) {
     console.error("save-reminder error:", error);
     // HUOM: HTTP 200 silloinkin kun sisäisesti failasi — muuten Vapi ignooraa.
