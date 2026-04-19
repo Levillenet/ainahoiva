@@ -82,41 +82,58 @@ Deno.serve(async (req) => {
   }
 });
 
-function parseDateTime(date: string, time: string): string {
-  const now = new Date();
-  const finnish = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-  let targetDate = new Date(finnish);
+// Palauttaa Suomen aikavyöhykkeen offsetin tunteina (2 tai 3)
+// kesäaikakäytännön mukaan. Huhtikuu-lokakuu = +3, muut = +2.
+function finnishOffsetHours(date: Date): number {
+  const month = date.getUTCMonth() + 1;
+  return month >= 4 && month <= 10 ? 3 : 2;
+}
 
+function parseDateTime(date: string, time: string): string {
+  const nowUtc = new Date();
+  const offset = finnishOffsetHours(nowUtc);
+
+  // Luo "Suomen ajan näkymä" nykyhetkestä käyttämällä UTC-settereitä
+  const nowFinnish = new Date(nowUtc.getTime() + offset * 60 * 60 * 1000);
+  const target = new Date(nowFinnish);
+
+  // Päivä suomeksi
   const dateLower = (date ?? "").toLowerCase();
   if (dateLower.includes("huomenna") || dateLower.includes("huomis")) {
-    targetDate.setDate(targetDate.getDate() + 1);
+    target.setUTCDate(target.getUTCDate() + 1);
   } else if (dateLower.includes("ylihuomenna")) {
-    targetDate.setDate(targetDate.getDate() + 2);
+    target.setUTCDate(target.getUTCDate() + 2);
   }
 
+  // Kellonaika — tukee "11.45", "11:45", "11"
+  let hours = 0;
+  let minutes = 0;
   if (time) {
-    const timeMatch = time.match(/(\d{1,2})[:.:]?(\d{2})?/);
+    const timeMatch = time.match(/(\d{1,2})(?:[:.]\s*(\d{1,2}))?/);
     if (timeMatch) {
-      targetDate.setHours(
-        parseInt(timeMatch[1]),
-        parseInt(timeMatch[2] ?? "0"),
-        0,
-        0
-      );
+      hours = parseInt(timeMatch[1], 10);
+      minutes = parseInt(timeMatch[2] ?? "0", 10);
     }
   }
 
-  return targetDate.toISOString();
+  // Aseta Suomen aika UTC-setterillä koska target on jo offsetattu
+  target.setUTCHours(hours, minutes, 0, 0);
+
+  // Muunna takaisin oikeaksi UTC-ajaksi tallennusta varten
+  const utcMillis = target.getTime() - offset * 60 * 60 * 1000;
+  return new Date(utcMillis).toISOString();
 }
 
 function formatDateTime(isoString: string): string {
+  // Intl.DateTimeFormat hoitaa aikavyöhykemuunnoksen oikein
+  // ilman manuaalista offsettia
   const date = new Date(isoString);
-  const finnish = new Date(date.getTime() + 3 * 60 * 60 * 1000);
-  return finnish.toLocaleString("fi-FI", {
+  return new Intl.DateTimeFormat("fi-FI", {
+    timeZone: "Europe/Helsinki",
     weekday: "long",
     day: "numeric",
     month: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
+  }).format(date);
 }
