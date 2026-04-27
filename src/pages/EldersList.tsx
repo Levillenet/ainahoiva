@@ -7,8 +7,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Phone, Smile, Pill, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, Phone, Smile, Pill, Clock, AlertTriangle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { deleteElderCascade } from '@/lib/deleteElder';
 
 const moodEmoji = (score: number | null) => {
   if (!score) return '—';
@@ -22,6 +28,7 @@ const EldersList = () => {
   const [elders, setElders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     full_name: '', phone_number: '', date_of_birth: '', address: '', postal_code: '',
     call_time_morning: '08:00', call_time_evening: '19:00', notes: '',
@@ -43,6 +50,27 @@ const EldersList = () => {
   };
 
   useEffect(() => { fetchElders(); }, []);
+
+  const handleDelete = async (elderId: string, name: string) => {
+    setDeletingId(elderId);
+    const { success, errors } = await deleteElderCascade(elderId);
+    setDeletingId(null);
+    if (success) {
+      toast({
+        title: 'Vanhus poistettu',
+        description: errors.length > 0
+          ? `${name} poistettu, mutta osa liittyvästä datasta jäi: ${errors.length} virhettä.`
+          : `${name} ja kaikki liittyvä data on poistettu.`,
+      });
+      fetchElders();
+    } else {
+      toast({
+        title: 'Poisto epäonnistui',
+        description: errors.join('; ') || 'Tuntematon virhe',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,6 +185,38 @@ const EldersList = () => {
                 <Link to={`/dashboard/vanhukset/${elder.id}`}>
                   <Button size="sm" variant="outline" className="border-sage text-sage hover:bg-sage/10">Avaa tiedot</Button>
                 </Link>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={deletingId === elder.id}
+                      className="border-terracotta text-terracotta hover:bg-terracotta/10"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      {deletingId === elder.id ? 'Poistetaan…' : 'Poista'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-card border-border">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-cream">Poista vanhus pysyvästi?</AlertDialogTitle>
+                      <AlertDialogDescription className="text-muted-custom">
+                        Poistat vanhuksen <strong>{elder.full_name}</strong> ja kaiken liittyvän
+                        datan: puhelut, muistot, muistutukset, lääkkeet, omaiset ja hälytykset.
+                        Tätä toimintoa ei voi peruuttaa.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="bg-muted text-cream">Peruuta</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(elder.id, elder.full_name)}
+                        className="bg-terracotta text-cream hover:bg-terracotta/90"
+                      >
+                        Poista pysyvästi
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           ))}
