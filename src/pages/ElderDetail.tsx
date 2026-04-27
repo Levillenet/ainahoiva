@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Phone, Pill, Users, Smile, Utensils, Loader2, Trash2, Plus, Volume2, Pencil, Check, X, Brain, Heart, BookOpen, ArrowRight } from 'lucide-react';
+import { deleteElderCascade } from '@/lib/deleteElder';
 import EmergencySettings from '@/components/EmergencySettings';
 import MemoriesSection from '@/components/MemoriesSection';
 import MedicationLog from '@/components/MedicationLog';
