@@ -46,6 +46,7 @@ const ElderDetail = () => {
   const [calling, setCalling] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ full_name: '', phone_number: '', postal_code: '' });
+  const [deletingElder, setDeletingElder] = useState(false);
   const [medDialogOpen, setMedDialogOpen] = useState(false);
   const [medForm, setMedForm] = useState({ name: '', dosage: '', morning: false, noon: false, evening: false, instructions: '' });
   const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
@@ -249,9 +250,63 @@ const ElderDetail = () => {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate('/dashboard/vanhukset')} className="text-cream">
-        <ArrowLeft className="w-4 h-4 mr-2" /> Takaisin
-      </Button>
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" onClick={() => navigate('/dashboard/vanhukset')} className="text-cream">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Takaisin
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={deletingElder}
+              className="border-terracotta text-terracotta hover:bg-terracotta/10"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {deletingElder ? 'Poistetaan…' : 'Poista vanhus'}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="bg-card border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-cream">Poista vanhus pysyvästi?</AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-custom">
+                Poistat vanhuksen <strong>{elder?.full_name}</strong> ja kaiken liittyvän
+                datan: puhelut, muistot, muistutukset, lääkkeet, omaiset ja hälytykset.
+                Tätä toimintoa ei voi peruuttaa.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-muted text-cream">Peruuta</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (!id) return;
+                  setDeletingElder(true);
+                  const { success, errors } = await deleteElderCascade(id);
+                  setDeletingElder(false);
+                  if (success) {
+                    toast({
+                      title: 'Vanhus poistettu',
+                      description: errors.length > 0
+                        ? `Poistettu, mutta ${errors.length} virhettä liittyvässä datassa.`
+                        : 'Kaikki tiedot poistettiin.',
+                    });
+                    navigate('/dashboard/vanhukset');
+                  } else {
+                    toast({
+                      title: 'Poisto epäonnistui',
+                      description: errors.join('; ') || 'Tuntematon virhe',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+                className="bg-terracotta text-cream hover:bg-terracotta/90"
+              >
+                Poista pysyvästi
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
 
       {/* Header */}
       <div className="bg-card rounded-lg p-6 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
